@@ -19,7 +19,11 @@ void enableRawMode()
   struct termios raw = orig_termios;
 
   tcgetattr(STDIN_FILENO, &raw);
-  raw.c_lflag &= ~(ECHO | ICANON);
+  raw.c_iflag &= ~(BRKINT | ICRNL | ISTRIP | IXON);
+  raw.c_oflag &= ~(OPOST);
+  raw.c_cflag |= (CS8);
+  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
 
@@ -32,11 +36,11 @@ int main()
   {
     if (iscntrl(c))
     {
-      std::cout << (int)c << std::endl;
+      std::cout << (int)c << "\r" << std::endl;
     }
     else
     {
-      std::cout << (int)c << " ('" << c << "')" << std::endl;
+      std::cout << (int)c << " ('" << c << "')\r" << std::endl;
     }
   }
 
