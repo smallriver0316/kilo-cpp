@@ -1,3 +1,4 @@
+#include <cctype>
 #include <iostream>
 #include <stdlib.h>
 #include <termios.h>
@@ -29,6 +30,14 @@ int main()
   char c;
   while (std::cin.get(c) && c != 'q')
   {
+    if (iscntrl(c))
+    {
+      std::cout << (int)c << std::endl;
+    }
+    else
+    {
+      std::cout << (int)c << " ('" << c << "')" << std::endl;
+    }
   }
 
   return 0;
