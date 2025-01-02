@@ -23,6 +23,8 @@ void enableRawMode()
   raw.c_oflag &= ~(OPOST);
   raw.c_cflag |= (CS8);
   raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+  raw.c_cc[VMIN] = 0;
+  raw.c_cc[VTIME] = 1;
 
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
 }
@@ -31,9 +33,11 @@ int main()
 {
   enableRawMode();
 
-  char c;
-  while (std::cin.get(c) && c != 'q')
+  while (1)
   {
+    char c = '\0';
+    std::cin.get(c);
+
     if (iscntrl(c))
     {
       std::cout << (int)c << "\r" << std::endl;
@@ -41,6 +45,11 @@ int main()
     else
     {
       std::cout << (int)c << " ('" << c << "')\r" << std::endl;
+    }
+
+    if (c == 'q')
+    {
+      break;
     }
   }
 
