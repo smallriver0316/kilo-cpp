@@ -6,9 +6,15 @@
 #include <termios.h>
 #include <unistd.h>
 
+/*** defines ***/
+
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+/*** data ***/
+
 struct termios orig_termios;
+
+/*** terminal ***/
 
 void die(const char *s)
 {
@@ -47,31 +53,45 @@ void enableRawMode()
   }
 }
 
+char editorReadKey()
+{
+  int nread;
+  char c;
+
+  while ((nread = read(STDIN_FILENO, &c, 1)) != 1)
+  {
+    if (nread == -1 && errno != EAGAIN)
+    {
+      die("read");
+    }
+  }
+
+  return c;
+}
+
+/** input ***/
+
+void editorProcessKeypress()
+{
+  char c = editorReadKey();
+
+  switch (c)
+  {
+  case CTRL_KEY('q'):
+  {
+    exit(0);
+    break;
+  }
+  }
+}
+
 int main()
 {
   enableRawMode();
 
   while (1)
   {
-    char c = '\0';
-    if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN)
-    {
-      die("read");
-    }
-
-    if (iscntrl(c))
-    {
-      std::cout << (int)c << "\r" << std::endl;
-    }
-    else
-    {
-      std::cout << (int)c << " ('" << c << "')\r" << std::endl;
-    }
-
-    if (c == CTRL_KEY('q'))
-    {
-      break;
-    }
+    editorProcessKeypress();
   }
 
   return 0;
