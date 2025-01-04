@@ -1,7 +1,8 @@
 #include <cctype>
 #include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
-#include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -31,8 +32,6 @@ void enableRawMode()
   atexit(disableRawMode);
 
   struct termios raw = orig_termios;
-
-  tcgetattr(STDIN_FILENO, &raw);
   raw.c_iflag &= ~(BRKINT | ICRNL | ISTRIP | IXON);
   raw.c_oflag &= ~(OPOST);
   raw.c_cflag |= (CS8);
