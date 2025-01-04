@@ -53,8 +53,7 @@ int main()
   while (1)
   {
     char c = '\0';
-    std::cin.get(c);
-    if (errno != EAGAIN)
+    if (read(STDIN_FILENO, &c, 1) == -1 && errno != EAGAIN)
     {
       die("read");
     }
