@@ -10,6 +10,7 @@
 
 /*** defines ***/
 
+#define KILO_VERSION "0.0.1"
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 /*** data ***/
@@ -147,7 +148,34 @@ void editorDrawRows(std::string &s)
   int y;
   for (y = 0; y < E.screenrows; y++)
   {
-    s += "~\x1b[K";
+    if (y == E.screenrows / 3)
+    {
+      std::string welcomemsg = "Kilo editor -- version " + std::string(KILO_VERSION);
+      if (welcomemsg.size() > (std::size_t)E.screencols)
+      {
+        welcomemsg.resize(E.screencols);
+      }
+
+      int padding = ((std::size_t)E.screencols - welcomemsg.size()) / 2;
+      if (padding)
+      {
+        s += "~";
+        padding--;
+      }
+
+      while (padding--)
+      {
+        s += " ";
+      }
+
+      s += welcomemsg;
+    }
+    else
+    {
+      s += "~";
+    }
+    s += "\x1b[K";
+
     if (y < E.screenrows - 1)
     {
       s += "\r\n";
