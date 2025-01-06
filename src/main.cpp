@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <sys/ioctl.h>
 #include <termios.h>
@@ -13,10 +14,21 @@
 #define KILO_VERSION "0.0.1"
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+enum class EditorKey
+{
+  ARROW_LEFT = 1000,
+  ARROW_RIGHT,
+  ARROW_UP,
+  ARROW_DOWN,
+  PAGE_UP,
+  PAGE_DOWN
+};
+
 /*** data ***/
 
 struct editorConfig
 {
+  int cx, cy;
   int screenrows;
   int screencols;
   struct termios orig_termios;
@@ -64,7 +76,7 @@ void enableRawMode()
   }
 }
 
-char editorReadKey()
+int editorReadKey()
 {
   int nread;
   char c;
@@ -75,6 +87,55 @@ char editorReadKey()
     {
       die("read");
     }
+  }
+
+  if (c == '\x1b')
+  {
+    char seq[3];
+
+    if (read(STDIN_FILENO, &seq[0], 1) != 1)
+    {
+      return '\x1b';
+    }
+    if (read(STDIN_FILENO, &seq[1], 1) != 1)
+    {
+      return '\x1b';
+    }
+
+    if (seq[0] == '[')
+    {
+      if (seq[1] >= '0' && seq[1] <= '9')
+      {
+        if (read(STDIN_FILENO, &seq[2], 1) != 1)
+        {
+          return '\x1b';
+        }
+        if (seq[2] == '~')
+        {
+          switch (seq[1])
+          {
+          case '5':
+            return static_cast<int>(EditorKey::PAGE_UP);
+          case '6':
+            return static_cast<int>(EditorKey::PAGE_DOWN);
+          }
+        }
+      }
+
+      switch (seq[1])
+      {
+      case 'A':
+        return static_cast<int>(EditorKey::ARROW_UP);
+      case 'B':
+        return static_cast<int>(EditorKey::ARROW_DOWN);
+      case 'C':
+        return static_cast<int>(EditorKey::ARROW_RIGHT);
+      case 'D':
+        return static_cast<int>(EditorKey::ARROW_LEFT);
+      }
+    }
+
+    return '\x1b';
   }
 
   return c;
@@ -192,8 +253,9 @@ void editorRefreshScreen()
 
   editorDrawRows(s);
 
-  s += "\x1b[H";
-  s += "\x1b[?25h";
+  std::stringstream ss;
+  ss << "\x1b[" << E.cy + 1 << ";" << E.cx + 1 << "H" << "\x1b[?25h";
+  s += ss.str();
 
   write(STDOUT_FILENO, s.c_str(), s.size());
   s = "";
@@ -201,19 +263,64 @@ void editorRefreshScreen()
 
 /** input ***/
 
+void editorMoveCursor(int key)
+{
+  switch (key)
+  {
+  case static_cast<int>(EditorKey::ARROW_LEFT):
+    if (E.cx != 0)
+    {
+      E.cx--;
+    }
+    break;
+  case static_cast<int>(EditorKey::ARROW_RIGHT):
+    if (E.cx != E.screencols - 1)
+    {
+      E.cx++;
+    }
+    break;
+  case static_cast<int>(EditorKey::ARROW_UP):
+    if (E.cy != 0)
+    {
+      E.cy--;
+    }
+    break;
+  case static_cast<int>(EditorKey::ARROW_DOWN):
+    if (E.cy != E.screenrows - 1)
+    {
+      E.cy++;
+    }
+    break;
+  }
+}
+
 void editorProcessKeypress()
 {
-  char c = editorReadKey();
+  int c = editorReadKey();
 
   switch (c)
   {
   case CTRL_KEY('q'):
-  {
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
     break;
+  case static_cast<int>(EditorKey::PAGE_UP):
+  case static_cast<int>(EditorKey::PAGE_DOWN):
+  {
+    int times = E.screenrows;
+    while (times--)
+    {
+      editorMoveCursor(c == static_cast<int>(EditorKey::PAGE_UP) ? static_cast<int>(EditorKey::ARROW_UP) : static_cast<int>(EditorKey::ARROW_DOWN));
+    }
   }
+  break;
+  case static_cast<int>(EditorKey::ARROW_UP):
+  case static_cast<int>(EditorKey::ARROW_DOWN):
+  case static_cast<int>(EditorKey::ARROW_LEFT):
+  case static_cast<int>(EditorKey::ARROW_RIGHT):
+    editorMoveCursor(c);
+    break;
   }
 }
 
@@ -221,6 +328,8 @@ void editorProcessKeypress()
 
 void initEditor()
 {
+  E.cx = 0;
+  E.cy = 0;
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
     die("getWindowSize");
