@@ -20,6 +20,9 @@ enum class EditorKey
   ARROW_RIGHT,
   ARROW_UP,
   ARROW_DOWN,
+  DEL_KEY,
+  HOME_KEY,
+  END_KEY,
   PAGE_UP,
   PAGE_DOWN
 };
@@ -114,24 +117,50 @@ int editorReadKey()
         {
           switch (seq[1])
           {
+          case '1':
+            return static_cast<int>(EditorKey::HOME_KEY);
+          case '3':
+            return static_cast<int>(EditorKey::DEL_KEY);
+          case '4':
+            return static_cast<int>(EditorKey::END_KEY);
           case '5':
             return static_cast<int>(EditorKey::PAGE_UP);
           case '6':
             return static_cast<int>(EditorKey::PAGE_DOWN);
+          case '7':
+            return static_cast<int>(EditorKey::HOME_KEY);
+          case '8':
+            return static_cast<int>(EditorKey::END_KEY);
           }
         }
       }
-
+      else
+      {
+        switch (seq[1])
+        {
+        case 'A':
+          return static_cast<int>(EditorKey::ARROW_UP);
+        case 'B':
+          return static_cast<int>(EditorKey::ARROW_DOWN);
+        case 'C':
+          return static_cast<int>(EditorKey::ARROW_RIGHT);
+        case 'D':
+          return static_cast<int>(EditorKey::ARROW_LEFT);
+        case 'H':
+          return static_cast<int>(EditorKey::HOME_KEY);
+        case 'F':
+          return static_cast<int>(EditorKey::END_KEY);
+        }
+      }
+    }
+    else if (seq[0] == 'O')
+    {
       switch (seq[1])
       {
-      case 'A':
-        return static_cast<int>(EditorKey::ARROW_UP);
-      case 'B':
-        return static_cast<int>(EditorKey::ARROW_DOWN);
-      case 'C':
-        return static_cast<int>(EditorKey::ARROW_RIGHT);
-      case 'D':
-        return static_cast<int>(EditorKey::ARROW_LEFT);
+      case 'H':
+        return static_cast<int>(EditorKey::HOME_KEY);
+      case 'F':
+        return static_cast<int>(EditorKey::END_KEY);
       }
     }
 
@@ -304,6 +333,12 @@ void editorProcessKeypress()
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
+    break;
+  case static_cast<int>(EditorKey::HOME_KEY):
+    E.cx = 0;
+    break;
+  case static_cast<int>(EditorKey::END_KEY):
+    E.cx = E.screencols - 1;
     break;
   case static_cast<int>(EditorKey::PAGE_UP):
   case static_cast<int>(EditorKey::PAGE_DOWN):
