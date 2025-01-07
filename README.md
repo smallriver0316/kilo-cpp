@@ -1,4 +1,4 @@
-# kilo-cpp
+# kilo-cpp (kilo++)
 
 This is a project to build a text editor from scratch in C++.
 
