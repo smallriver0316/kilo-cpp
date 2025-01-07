@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16.3)
 
-project(kilo-cpp
+project(kilo++
   VERSION 0.1
   DESCRIPTION "Text editor built with C++"
   LANGUAGES CXX)
