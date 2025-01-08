@@ -29,12 +29,20 @@ enum class EditorKey
 
 /*** data ***/
 
-struct editorConfig
+struct EditorRow
+{
+  int size;
+  char *chars;
+};
+
+struct EditorConfig
 {
   int cx, cy;
   int screenrows;
   int screencols;
-  struct termios orig_termios;
+  int numrows;
+  EditorRow row;
+  termios orig_termios;
 } E;
 
 /*** terminal ***/
@@ -365,6 +373,7 @@ void initEditor()
 {
   E.cx = 0;
   E.cy = 0;
+  E.numrows = 0;
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
     die("getWindowSize");
