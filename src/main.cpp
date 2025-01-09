@@ -2,6 +2,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -235,11 +236,31 @@ int getWindowSize(int *rows, int *cols)
 
 /*** file i/o ***/
 
-void editorOpen()
+void editorOpen(const char *filename)
 {
-  std::string s = "Hello, world!";
-  E.erow = s + '\0';
+  std::ifstream file(filename);
+  if (!file.is_open())
+  {
+    die("fopen");
+  }
+
+  std::string line;
+  while (std::getline(file, line))
+  {
+    if (line[line.size() - 1] == '\n')
+    {
+      line.erase(line.size() - 1);
+    }
+    if (line[line.size() - 1] == '\r')
+    {
+      line.erase(line.size() - 1);
+    }
+    E.erow += line + '\0';
+  }
+
   E.numrows = 1;
+
+  file.close();
 }
 
 /*** output ***/
@@ -280,8 +301,7 @@ void editorDrawRows(std::string &s)
     }
     else
     {
-      int len = E.erow.size();
-      s += E.erow.substr(0, std::min(len, E.screencols));
+      s += E.erow.substr(0, std::min((int)E.erow.size(), E.screencols));
     }
 
     s += "\x1b[K";
@@ -392,11 +412,14 @@ void initEditor()
   }
 }
 
-int main()
+int main(int argc, char **argv)
 {
   enableRawMode();
   initEditor();
-  editorOpen();
+  if (argc >= 2)
+  {
+    editorOpen(argv[1]);
+  }
 
   while (1)
   {
