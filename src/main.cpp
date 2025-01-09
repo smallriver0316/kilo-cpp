@@ -29,19 +29,13 @@ enum class EditorKey
 
 /*** data ***/
 
-struct EditorRow
-{
-  int size;
-  char *chars;
-};
-
 struct EditorConfig
 {
   int cx, cy;
   int screenrows;
   int screencols;
   int numrows;
-  EditorRow row;
+  std::string erow;
   termios orig_termios;
 } E;
 
@@ -239,6 +233,15 @@ int getWindowSize(int *rows, int *cols)
   }
 }
 
+/*** file i/o ***/
+
+void editorOpen()
+{
+  std::string s = "Hello, world!";
+  E.erow = s + '\0';
+  E.numrows = 1;
+}
+
 /*** output ***/
 
 void editorDrawRows(std::string &s)
@@ -246,32 +249,41 @@ void editorDrawRows(std::string &s)
   int y;
   for (y = 0; y < E.screenrows; y++)
   {
-    if (y == E.screenrows / 3)
+    if (y >= E.numrows)
     {
-      std::string welcomemsg = "Kilo editor -- version " + std::string(KILO_VERSION);
-      if (welcomemsg.size() > (std::size_t)E.screencols)
+      if (y == E.screenrows / 3)
       {
-        welcomemsg.resize(E.screencols);
-      }
+        std::string welcomemsg = "Kilo editor -- version " + std::string(KILO_VERSION);
+        if (welcomemsg.size() > (std::size_t)E.screencols)
+        {
+          welcomemsg.resize(E.screencols);
+        }
 
-      int padding = ((std::size_t)E.screencols - welcomemsg.size()) / 2;
-      if (padding)
+        int padding = ((std::size_t)E.screencols - welcomemsg.size()) / 2;
+        if (padding)
+        {
+          s += "~";
+          padding--;
+        }
+
+        while (padding--)
+        {
+          s += " ";
+        }
+
+        s += welcomemsg;
+      }
+      else
       {
         s += "~";
-        padding--;
       }
-
-      while (padding--)
-      {
-        s += " ";
-      }
-
-      s += welcomemsg;
     }
     else
     {
-      s += "~";
+      int len = E.erow.size();
+      s += E.erow.substr(0, std::min(len, E.screencols));
     }
+
     s += "\x1b[K";
 
     if (y < E.screenrows - 1)
@@ -384,6 +396,7 @@ int main()
 {
   enableRawMode();
   initEditor();
+  editorOpen();
 
   while (1)
   {
