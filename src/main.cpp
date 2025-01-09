@@ -1,3 +1,9 @@
+/*** includes ***/
+
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+#define _GNU_SOURC
+
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
@@ -9,6 +15,7 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
+#include <vector>
 
 /*** defines ***/
 
@@ -36,7 +43,7 @@ struct EditorConfig
   int screenrows;
   int screencols;
   int numrows;
-  std::string erow;
+  std::vector<std::string> rows;
   termios orig_termios;
 } E;
 
@@ -234,6 +241,14 @@ int getWindowSize(int *rows, int *cols)
   }
 }
 
+/*** row operations ***/
+
+void editorAppendRow(std::string &s)
+{
+  E.rows.push_back(s + '\0');
+  E.numrows = 1;
+}
+
 /*** file i/o ***/
 
 void editorOpen(const char *filename)
@@ -255,7 +270,7 @@ void editorOpen(const char *filename)
     {
       line.erase(line.size() - 1);
     }
-    E.erow += line + '\0';
+    editorAppendRow(line);
   }
 
   E.numrows = 1;
@@ -272,7 +287,7 @@ void editorDrawRows(std::string &s)
   {
     if (y >= E.numrows)
     {
-      if (y == E.screenrows / 3)
+      if (E.numrows == 0 && y == E.screenrows / 3)
       {
         std::string welcomemsg = "Kilo editor -- version " + std::string(KILO_VERSION);
         if (welcomemsg.size() > (std::size_t)E.screencols)
@@ -301,7 +316,7 @@ void editorDrawRows(std::string &s)
     }
     else
     {
-      s += E.erow.substr(0, std::min((int)E.erow.size(), E.screencols));
+      s += E.rows[y].substr(0, std::min((int)E.rows[y].size(), E.screencols));
     }
 
     s += "\x1b[K";
@@ -406,6 +421,7 @@ void initEditor()
   E.cx = 0;
   E.cy = 0;
   E.numrows = 0;
+  E.rows = {};
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
     die("getWindowSize");
