@@ -42,7 +42,6 @@ struct EditorConfig
   int cx, cy;
   int screenrows;
   int screencols;
-  int numrows;
   std::vector<std::string> rows;
   termios orig_termios;
 } E;
@@ -246,7 +245,6 @@ int getWindowSize(int *rows, int *cols)
 void editorAppendRow(std::string &s)
 {
   E.rows.push_back(s + '\0');
-  E.numrows = 1;
 }
 
 /*** file i/o ***/
@@ -273,8 +271,6 @@ void editorOpen(const char *filename)
     editorAppendRow(line);
   }
 
-  E.numrows = 1;
-
   file.close();
 }
 
@@ -285,9 +281,9 @@ void editorDrawRows(std::string &s)
   int y;
   for (y = 0; y < E.screenrows; y++)
   {
-    if (y >= E.numrows)
+    if (y >= (int)E.rows.size())
     {
-      if (E.numrows == 0 && y == E.screenrows / 3)
+      if (E.rows.size() == 0 && y == E.screenrows / 3)
       {
         std::string welcomemsg = "Kilo editor -- version " + std::string(KILO_VERSION);
         if (welcomemsg.size() > (std::size_t)E.screencols)
@@ -420,7 +416,6 @@ void initEditor()
 {
   E.cx = 0;
   E.cy = 0;
-  E.numrows = 0;
   E.rows = {};
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
