@@ -40,6 +40,8 @@ enum class EditorKey
 struct EditorConfig
 {
   int cx, cy;
+  int rowoff;
+  int coloff;
   int screenrows;
   int screencols;
   std::vector<std::string> rows;
@@ -276,12 +278,33 @@ void editorOpen(const char *filename)
 
 /*** output ***/
 
+void editorScroll()
+{
+  if (E.cy < E.rowoff)
+  {
+    E.rowoff = E.cy;
+  }
+  if (E.cy >= E.rowoff + E.screenrows)
+  {
+    E.rowoff = E.cy - E.screenrows + 1;
+  }
+  if (E.cx < E.coloff)
+  {
+    E.coloff = E.cx;
+  }
+  if (E.cx >= E.coloff + E.screencols)
+  {
+    E.coloff = E.cx - E.screencols + 1;
+  }
+}
+
 void editorDrawRows(std::string &s)
 {
   int y;
   for (y = 0; y < E.screenrows; y++)
   {
-    if (y >= (int)E.rows.size())
+    int filerow = y + E.rowoff;
+    if (filerow >= (int)E.rows.size())
     {
       if (E.rows.size() == 0 && y == E.screenrows / 3)
       {
@@ -312,7 +335,12 @@ void editorDrawRows(std::string &s)
     }
     else
     {
-      s += E.rows[y].substr(0, std::min((int)E.rows[y].size(), E.screencols));
+      int len = (int)E.rows[filerow].size() - E.coloff;
+      if (len < 0)
+      {
+        len = 0;
+      }
+      s += E.rows[filerow].substr(0, std::min(len, E.screencols));
     }
 
     s += "\x1b[K";
@@ -326,6 +354,8 @@ void editorDrawRows(std::string &s)
 
 void editorRefreshScreen()
 {
+  editorScroll();
+
   std::string s;
 
   s += "\x1b[?25l";
@@ -334,7 +364,7 @@ void editorRefreshScreen()
   editorDrawRows(s);
 
   std::stringstream ss;
-  ss << "\x1b[" << E.cy + 1 << ";" << E.cx + 1 << "H" << "\x1b[?25h";
+  ss << "\x1b[" << (E.cy - E.rowoff) + 1 << ";" << (E.cx - E.coloff) + 1 << "H" << "\x1b[?25h";
   s += ss.str();
 
   write(STDOUT_FILENO, s.c_str(), s.size());
@@ -354,10 +384,7 @@ void editorMoveCursor(int key)
     }
     break;
   case static_cast<int>(EditorKey::ARROW_RIGHT):
-    if (E.cx != E.screencols - 1)
-    {
-      E.cx++;
-    }
+    E.cx++;
     break;
   case static_cast<int>(EditorKey::ARROW_UP):
     if (E.cy != 0)
@@ -366,7 +393,7 @@ void editorMoveCursor(int key)
     }
     break;
   case static_cast<int>(EditorKey::ARROW_DOWN):
-    if (E.cy != E.screenrows - 1)
+    if (E.cy < (int)E.rows.size())
     {
       E.cy++;
     }
@@ -416,6 +443,8 @@ void initEditor()
 {
   E.cx = 0;
   E.cy = 0;
+  E.rowoff = 0;
+  E.coloff = 0;
   E.rows = {};
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
