@@ -390,6 +390,11 @@ void editorMoveCursor(int key)
     {
       E.cx++;
     }
+    else if (rowitr != E.rows.end() && E.cx == (int)rowitr->size() - 1)
+    {
+      E.cy++;
+      E.cx = 0;
+    }
     break;
   case static_cast<int>(EditorKey::ARROW_UP):
     if (E.cy != 0)
