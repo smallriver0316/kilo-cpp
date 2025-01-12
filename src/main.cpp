@@ -13,6 +13,7 @@
 #include <string>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -50,6 +51,8 @@ struct EditorConfig
   std::vector<std::string> renders;
   termios orig_termios;
   std::string filename;
+  std::string statusmsg;
+  time_t statusmsg_time;
 } E;
 
 /*** terminal ***/
@@ -429,6 +432,21 @@ void editorDrawStatusBar(std::string &s)
     len++;
   }
   s += "\x1b[m";
+  s += "\r\n";
+}
+
+void editorDrawMessageBar(std::string &s)
+{
+  s += "\x1b[K";
+  int msglen = (int)E.statusmsg.size();
+  if (msglen > E.screencols)
+  {
+    msglen = E.screencols;
+  }
+  if (msglen && time(NULL) - E.statusmsg_time < 5)
+  {
+    s += E.statusmsg.substr(0, msglen);
+  }
 }
 
 void editorRefreshScreen()
@@ -442,6 +460,7 @@ void editorRefreshScreen()
 
   editorDrawRows(s);
   editorDrawStatusBar(s);
+  editorDrawMessageBar(s);
 
   std::stringstream ss;
   ss << "\x1b[" << (E.cy - E.rowoff) + 1 << ";" << (E.rx - E.coloff) + 1 << "H" << "\x1b[?25h";
@@ -449,6 +468,13 @@ void editorRefreshScreen()
 
   write(STDOUT_FILENO, s.c_str(), s.size());
   s = "";
+}
+
+template <typename... Args>
+void editorSetStatusMessage(Args &&...args)
+{
+  E.statusmsg = std::string(std::forward<Args>(args)...);
+  E.statusmsg_time = time(NULL);
 }
 
 /** input ***/
@@ -562,12 +588,14 @@ void initEditor()
   E.rows = {};
   E.renders = {};
   E.filename = "";
+  E.statusmsg = "\0";
+  E.statusmsg_time = 0;
 
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
     die("getWindowSize");
   }
-  E.screenrows -= 1;
+  E.screenrows -= 2;
 }
 
 int main(int argc, char **argv)
@@ -578,6 +606,8 @@ int main(int argc, char **argv)
   {
     editorOpen(argv[1]);
   }
+
+  editorSetStatusMessage("HELP: Ctrl-Q = quit");
 
   while (1)
   {
