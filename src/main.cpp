@@ -2,7 +2,7 @@
 
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
-#define _GNU_SOURC
+#define _GNU_SOURCE
 
 #include <cctype>
 #include <cerrno>
@@ -340,7 +340,7 @@ void editorDrawRows(std::string &s)
       {
         len = 0;
       }
-      s += E.rows[filerow].substr(0, std::min(len, E.screencols));
+      s += E.rows[filerow].substr(E.coloff, std::min(len, E.screencols));
     }
 
     s += "\x1b[K";
@@ -375,6 +375,8 @@ void editorRefreshScreen()
 
 void editorMoveCursor(int key)
 {
+  auto rowitr = (E.cy >= (int)E.rows.size()) ? E.rows.end() : E.rows.begin() + E.cy;
+
   switch (key)
   {
   case static_cast<int>(EditorKey::ARROW_LEFT):
@@ -384,7 +386,10 @@ void editorMoveCursor(int key)
     }
     break;
   case static_cast<int>(EditorKey::ARROW_RIGHT):
-    E.cx++;
+    if (rowitr != E.rows.end() && E.cx < (int)rowitr->size() - 1)
+    {
+      E.cx++;
+    }
     break;
   case static_cast<int>(EditorKey::ARROW_UP):
     if (E.cy != 0)
@@ -398,6 +403,13 @@ void editorMoveCursor(int key)
       E.cy++;
     }
     break;
+  }
+
+  rowitr = (E.cy >= (int)E.rows.size()) ? E.rows.end() : E.rows.begin() + E.cy;
+  int rowlen = rowitr != E.rows.end() ? (int)rowitr->size() : 0;
+  if (E.cx > rowlen)
+  {
+    E.cx = rowlen;
   }
 }
 
