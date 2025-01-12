@@ -1,17 +1,28 @@
+/*** includes ***/
+
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
+#include <vector>
 
 /*** defines ***/
 
 #define KILO_VERSION "0.0.1"
+#define KILO_TAB_STOP 8
+#define FILENAME_DISPLAY_LEN 20
+
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 enum class EditorKey
@@ -29,12 +40,20 @@ enum class EditorKey
 
 /*** data ***/
 
-struct editorConfig
+struct EditorConfig
 {
   int cx, cy;
+  int rx;
+  int rowoff;
+  int coloff;
   int screenrows;
   int screencols;
-  struct termios orig_termios;
+  std::vector<std::string> rows;
+  std::vector<std::string> renders;
+  termios orig_termios;
+  std::string filename;
+  std::string statusmsg;
+  time_t statusmsg_time;
 } E;
 
 /*** terminal ***/
@@ -231,69 +250,240 @@ int getWindowSize(int *rows, int *cols)
   }
 }
 
+/*** row operations ***/
+
+int editorRowCxToRx(std::string &s, int cx)
+{
+  int rx = 0;
+  for (int i = 0; i < cx; i++)
+  {
+    if (s[i] == '\t')
+    {
+      rx += (KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP);
+    }
+    rx++;
+  }
+  return rx;
+}
+
+void editorUpdateRow(std::string &s)
+{
+  int tabs = 0;
+  for (int i = 0; i < (int)s.size(); i++)
+  {
+    if (s[i] == '\t')
+    {
+      tabs++;
+    }
+  }
+
+  std::string render = "";
+  for (int i = 0; i < (int)s.size(); i++)
+  {
+    if (s[i] == '\t')
+    {
+      render += " ";
+      while (render.size() % KILO_TAB_STOP != 0)
+      {
+        render += " ";
+      }
+    }
+    else
+    {
+      render += s[i];
+    }
+  }
+
+  render += '\0';
+  E.renders.push_back(render);
+}
+
+void editorAppendRow(std::string &s)
+{
+  E.rows.push_back(s + '\0');
+  editorUpdateRow(s);
+}
+
+/*** file i/o ***/
+
+void editorOpen(const char *filename)
+{
+  E.filename = std::string(filename);
+
+  std::ifstream file(filename);
+  if (!file.is_open())
+  {
+    die("fopen");
+  }
+
+  std::string line;
+  while (std::getline(file, line))
+  {
+    if (line[line.size() - 1] == '\n')
+    {
+      line.erase(line.size() - 1);
+    }
+    if (line[line.size() - 1] == '\r')
+    {
+      line.erase(line.size() - 1);
+    }
+    editorAppendRow(line);
+  }
+
+  file.close();
+}
+
 /*** output ***/
+
+void editorScroll()
+{
+  E.rx = E.cx;
+  if (E.cy < (int)E.rows.size())
+  {
+    E.rx = editorRowCxToRx(E.rows[E.cy], E.cx);
+  }
+  if (E.cy < E.rowoff)
+  {
+    E.rowoff = E.cy;
+  }
+  if (E.cy >= E.rowoff + E.screenrows)
+  {
+    E.rowoff = E.cy - E.screenrows + 1;
+  }
+  if (E.rx < E.coloff)
+  {
+    E.coloff = E.rx;
+  }
+  if (E.rx >= E.coloff + E.screencols)
+  {
+    E.coloff = E.rx - E.screencols + 1;
+  }
+}
 
 void editorDrawRows(std::string &s)
 {
   int y;
   for (y = 0; y < E.screenrows; y++)
   {
-    if (y == E.screenrows / 3)
+    int filerow = y + E.rowoff;
+    if (filerow >= (int)E.rows.size())
     {
-      std::string welcomemsg = "Kilo editor -- version " + std::string(KILO_VERSION);
-      if (welcomemsg.size() > (std::size_t)E.screencols)
+      if (E.rows.size() == 0 && y == E.screenrows / 3)
       {
-        welcomemsg.resize(E.screencols);
-      }
+        std::string welcomemsg = "Kilo editor -- version " + std::string(KILO_VERSION);
+        if (welcomemsg.size() > (std::size_t)E.screencols)
+        {
+          welcomemsg.resize(E.screencols);
+        }
 
-      int padding = ((std::size_t)E.screencols - welcomemsg.size()) / 2;
-      if (padding)
+        int padding = ((std::size_t)E.screencols - welcomemsg.size()) / 2;
+        if (padding)
+        {
+          s += "~";
+          padding--;
+        }
+
+        while (padding--)
+        {
+          s += " ";
+        }
+
+        s += welcomemsg;
+      }
+      else
       {
         s += "~";
-        padding--;
       }
-
-      while (padding--)
-      {
-        s += " ";
-      }
-
-      s += welcomemsg;
     }
     else
     {
-      s += "~";
+      int len = (int)E.renders[filerow].size() - E.coloff;
+      if (len < 0)
+      {
+        len = 0;
+      }
+      s += E.renders[filerow].substr(E.coloff, std::min(len, E.screencols));
     }
-    s += "\x1b[K";
 
-    if (y < E.screenrows - 1)
+    s += "\x1b[K";
+    s += "\r\n";
+  }
+}
+
+void editorDrawStatusBar(std::string &s)
+{
+  s += "\x1b[7m";
+
+  std::stringstream ss, rss;
+  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), FILENAME_DISPLAY_LEN))) << " - " << E.rows.size() << " lines";
+  int len = std::min((int)ss.str().size(), E.screencols);
+
+  rss << E.cy + 1 << "/" << E.rows.size();
+  int rlen = rss.str().size();
+
+  s += ss.str().substr(0, len);
+  while (len < E.screencols)
+  {
+    if (E.screencols - len == rlen)
     {
-      s += "\r\n";
+      s += rss.str();
+      break;
     }
+    s += " ";
+    len++;
+  }
+  s += "\x1b[m";
+  s += "\r\n";
+}
+
+void editorDrawMessageBar(std::string &s)
+{
+  s += "\x1b[K";
+  int msglen = (int)E.statusmsg.size();
+  if (msglen > E.screencols)
+  {
+    msglen = E.screencols;
+  }
+  if (msglen && time(NULL) - E.statusmsg_time < 5)
+  {
+    s += E.statusmsg.substr(0, msglen);
   }
 }
 
 void editorRefreshScreen()
 {
+  editorScroll();
+
   std::string s;
 
   s += "\x1b[?25l";
   s += "\x1b[H";
 
   editorDrawRows(s);
+  editorDrawStatusBar(s);
+  editorDrawMessageBar(s);
 
   std::stringstream ss;
-  ss << "\x1b[" << E.cy + 1 << ";" << E.cx + 1 << "H" << "\x1b[?25h";
+  ss << "\x1b[" << (E.cy - E.rowoff) + 1 << ";" << (E.rx - E.coloff) + 1 << "H" << "\x1b[?25h";
   s += ss.str();
 
   write(STDOUT_FILENO, s.c_str(), s.size());
   s = "";
 }
 
+template <typename... Args>
+void editorSetStatusMessage(Args &&...args)
+{
+  E.statusmsg = std::string(std::forward<Args>(args)...);
+  E.statusmsg_time = time(NULL);
+}
+
 /** input ***/
 
 void editorMoveCursor(int key)
 {
+  auto rowitr = (E.cy >= (int)E.rows.size()) ? E.rows.end() : E.rows.begin() + E.cy;
+
   switch (key)
   {
   case static_cast<int>(EditorKey::ARROW_LEFT):
@@ -303,9 +493,14 @@ void editorMoveCursor(int key)
     }
     break;
   case static_cast<int>(EditorKey::ARROW_RIGHT):
-    if (E.cx != E.screencols - 1)
+    if (rowitr != E.rows.end() && E.cx < (int)rowitr->size() - 1)
     {
       E.cx++;
+    }
+    else if (rowitr != E.rows.end() && E.cx == (int)rowitr->size() - 1)
+    {
+      E.cy++;
+      E.cx = 0;
     }
     break;
   case static_cast<int>(EditorKey::ARROW_UP):
@@ -315,11 +510,18 @@ void editorMoveCursor(int key)
     }
     break;
   case static_cast<int>(EditorKey::ARROW_DOWN):
-    if (E.cy != E.screenrows - 1)
+    if (E.cy < (int)E.rows.size())
     {
       E.cy++;
     }
     break;
+  }
+
+  rowitr = (E.cy >= (int)E.rows.size()) ? E.rows.end() : E.rows.begin() + E.cy;
+  int rowlen = rowitr != E.rows.end() ? (int)rowitr->size() : 0;
+  if (E.cx > rowlen)
+  {
+    E.cx = rowlen;
   }
 }
 
@@ -338,11 +540,27 @@ void editorProcessKeypress()
     E.cx = 0;
     break;
   case static_cast<int>(EditorKey::END_KEY):
-    E.cx = E.screencols - 1;
+    if (E.cy < (int)E.rows.size())
+    {
+      E.cx = E.rows[E.cy].size();
+    }
     break;
   case static_cast<int>(EditorKey::PAGE_UP):
   case static_cast<int>(EditorKey::PAGE_DOWN):
   {
+    if (c == static_cast<int>(EditorKey::PAGE_UP))
+    {
+      E.cy = E.rowoff;
+    }
+    else
+    {
+      E.cy = E.rowoff + E.screenrows - 1;
+      if (E.cy > (int)E.rows.size())
+      {
+        E.cy = E.rows.size();
+      }
+    }
+
     int times = E.screenrows;
     while (times--)
     {
@@ -365,16 +583,32 @@ void initEditor()
 {
   E.cx = 0;
   E.cy = 0;
+  E.rx = 0;
+  E.rowoff = 0;
+  E.coloff = 0;
+  E.rows = {};
+  E.renders = {};
+  E.filename = "";
+  E.statusmsg = "\0";
+  E.statusmsg_time = 0;
+
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
     die("getWindowSize");
   }
+  E.screenrows -= 2;
 }
 
-int main()
+int main(int argc, char **argv)
 {
   enableRawMode();
   initEditor();
+  if (argc >= 2)
+  {
+    editorOpen(argv[1]);
+  }
+
+  editorSetStatusMessage("HELP: Ctrl-Q = quit");
 
   while (1)
   {
