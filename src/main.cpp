@@ -21,6 +21,7 @@
 
 #define KILO_VERSION "0.0.1"
 #define KILO_TAB_STOP 8
+#define FILENAME_DISPLAY_LEN 20
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
@@ -414,7 +415,7 @@ void editorDrawStatusBar(std::string &s)
   s += "\x1b[7m";
 
   std::stringstream ss, rss;
-  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), 20))) << " - " << E.rows.size() << " lines";
+  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), FILENAME_DISPLAY_LEN))) << " - " << E.rows.size() << " lines";
   int len = std::min((int)ss.str().size(), E.screencols);
 
   rss << E.cy + 1 << "/" << E.rows.size();
