@@ -41,6 +41,7 @@ enum class EditorKey
 struct EditorConfig
 {
   int cx, cy;
+  int rx;
   int rowoff;
   int coloff;
   int screenrows;
@@ -246,6 +247,20 @@ int getWindowSize(int *rows, int *cols)
 
 /*** row operations ***/
 
+int editorRowCxToRx(std::string &s, int cx)
+{
+  int rx = 0;
+  for (int i = 0; i < cx; i++)
+  {
+    if (s[i] == '\t')
+    {
+      rx += (KILO_TAB_STOP - 1) - (rx % KILO_TAB_STOP);
+    }
+    rx++;
+  }
+  return rx;
+}
+
 void editorUpdateRow(std::string &s)
 {
   int tabs = 0;
@@ -315,6 +330,11 @@ void editorOpen(const char *filename)
 
 void editorScroll()
 {
+  E.rx = E.cx;
+  if (E.cy < (int)E.rows.size())
+  {
+    E.rx = editorRowCxToRx(E.rows[E.cy], E.cx);
+  }
   if (E.cy < E.rowoff)
   {
     E.rowoff = E.cy;
@@ -323,13 +343,13 @@ void editorScroll()
   {
     E.rowoff = E.cy - E.screenrows + 1;
   }
-  if (E.cx < E.coloff)
+  if (E.rx < E.coloff)
   {
-    E.coloff = E.cx;
+    E.coloff = E.rx;
   }
-  if (E.cx >= E.coloff + E.screencols)
+  if (E.rx >= E.coloff + E.screencols)
   {
-    E.coloff = E.cx - E.screencols + 1;
+    E.coloff = E.rx - E.screencols + 1;
   }
 }
 
@@ -399,7 +419,7 @@ void editorRefreshScreen()
   editorDrawRows(s);
 
   std::stringstream ss;
-  ss << "\x1b[" << (E.cy - E.rowoff) + 1 << ";" << (E.cx - E.coloff) + 1 << "H" << "\x1b[?25h";
+  ss << "\x1b[" << (E.cy - E.rowoff) + 1 << ";" << (E.rx - E.coloff) + 1 << "H" << "\x1b[?25h";
   s += ss.str();
 
   write(STDOUT_FILENO, s.c_str(), s.size());
@@ -495,6 +515,7 @@ void initEditor()
 {
   E.cx = 0;
   E.cy = 0;
+  E.rx = 0;
   E.rowoff = 0;
   E.coloff = 0;
   E.rows = {};
