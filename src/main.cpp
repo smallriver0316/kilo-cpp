@@ -488,11 +488,27 @@ void editorProcessKeypress()
     E.cx = 0;
     break;
   case static_cast<int>(EditorKey::END_KEY):
-    E.cx = E.screencols - 1;
+    if (E.cy < (int)E.rows.size())
+    {
+      E.cx = E.rows[E.cy].size();
+    }
     break;
   case static_cast<int>(EditorKey::PAGE_UP):
   case static_cast<int>(EditorKey::PAGE_DOWN):
   {
+    if (c == static_cast<int>(EditorKey::PAGE_UP))
+    {
+      E.cy = E.rowoff;
+    }
+    else
+    {
+      E.cy = E.rowoff + E.screenrows - 1;
+      if (E.cy > (int)E.rows.size())
+      {
+        E.cy = E.rows.size();
+      }
+    }
+
     int times = E.screenrows;
     while (times--)
     {
