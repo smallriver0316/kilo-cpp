@@ -2,7 +2,6 @@
 
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
-#define _GNU_SOURCE
 
 #include <cctype>
 #include <cerrno>
@@ -20,6 +19,8 @@
 /*** defines ***/
 
 #define KILO_VERSION "0.0.1"
+#define KILO_TAB_STOP 8
+
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 enum class EditorKey
@@ -45,6 +46,7 @@ struct EditorConfig
   int screenrows;
   int screencols;
   std::vector<std::string> rows;
+  std::vector<std::string> renders;
   termios orig_termios;
 } E;
 
@@ -244,9 +246,42 @@ int getWindowSize(int *rows, int *cols)
 
 /*** row operations ***/
 
+void editorUpdateRow(std::string &s)
+{
+  int tabs = 0;
+  for (int i = 0; i < (int)s.size(); i++)
+  {
+    if (s[i] == '\t')
+    {
+      tabs++;
+    }
+  }
+
+  std::string render = "";
+  for (int i = 0; i < (int)s.size(); i++)
+  {
+    if (s[i] == '\t')
+    {
+      render += " ";
+      while (render.size() % KILO_TAB_STOP != 0)
+      {
+        render += " ";
+      }
+    }
+    else
+    {
+      render += s[i];
+    }
+  }
+
+  render += '\0';
+  E.renders.push_back(render);
+}
+
 void editorAppendRow(std::string &s)
 {
   E.rows.push_back(s + '\0');
+  editorUpdateRow(s);
 }
 
 /*** file i/o ***/
@@ -335,12 +370,12 @@ void editorDrawRows(std::string &s)
     }
     else
     {
-      int len = (int)E.rows[filerow].size() - E.coloff;
+      int len = (int)E.renders[filerow].size() - E.coloff;
       if (len < 0)
       {
         len = 0;
       }
-      s += E.rows[filerow].substr(E.coloff, std::min(len, E.screencols));
+      s += E.renders[filerow].substr(E.coloff, std::min(len, E.screencols));
     }
 
     s += "\x1b[K";
