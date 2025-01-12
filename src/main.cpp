@@ -49,6 +49,7 @@ struct EditorConfig
   std::vector<std::string> rows;
   std::vector<std::string> renders;
   termios orig_termios;
+  std::string filename;
 } E;
 
 /*** terminal ***/
@@ -303,6 +304,8 @@ void editorAppendRow(std::string &s)
 
 void editorOpen(const char *filename)
 {
+  E.filename = std::string(filename);
+
   std::ifstream file(filename);
   if (!file.is_open())
   {
@@ -399,12 +402,33 @@ void editorDrawRows(std::string &s)
     }
 
     s += "\x1b[K";
-
-    if (y < E.screenrows - 1)
-    {
-      s += "\r\n";
-    }
+    s += "\r\n";
   }
+}
+
+void editorDrawStatusBar(std::string &s)
+{
+  s += "\x1b[7m";
+
+  std::stringstream ss, rss;
+  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), 20))) << " - " << E.rows.size() << " lines";
+  int len = std::min((int)ss.str().size(), E.screencols);
+
+  rss << E.cy + 1 << "/" << E.rows.size();
+  int rlen = rss.str().size();
+
+  s += ss.str().substr(0, len);
+  while (len < E.screencols)
+  {
+    if (E.screencols - len == rlen)
+    {
+      s += rss.str();
+      break;
+    }
+    s += " ";
+    len++;
+  }
+  s += "\x1b[m";
 }
 
 void editorRefreshScreen()
@@ -417,6 +441,7 @@ void editorRefreshScreen()
   s += "\x1b[H";
 
   editorDrawRows(s);
+  editorDrawStatusBar(s);
 
   std::stringstream ss;
   ss << "\x1b[" << (E.cy - E.rowoff) + 1 << ";" << (E.rx - E.coloff) + 1 << "H" << "\x1b[?25h";
@@ -535,10 +560,14 @@ void initEditor()
   E.rowoff = 0;
   E.coloff = 0;
   E.rows = {};
+  E.renders = {};
+  E.filename = "";
+
   if (getWindowSize(&E.screenrows, &E.screencols) == -1)
   {
     die("getWindowSize");
   }
+  E.screenrows -= 1;
 }
 
 int main(int argc, char **argv)
