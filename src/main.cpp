@@ -266,7 +266,7 @@ int editorRowCxToRx(std::string &s, int cx)
   return rx;
 }
 
-void editorUpdateRow(std::string &s)
+void editorUpdateRow(std::string &s, bool is_editing = false)
 {
   int tabs = 0;
   for (int i = 0; i < (int)s.size(); i++)
@@ -295,13 +295,43 @@ void editorUpdateRow(std::string &s)
   }
 
   render += '\0';
-  E.renders.push_back(render);
+  if (is_editing)
+  {
+    E.renders[E.cy] = render;
+  }
+  else
+  {
+    E.renders.push_back(render);
+  }
 }
 
 void editorAppendRow(std::string &s)
 {
   E.rows.push_back(s + '\0');
   editorUpdateRow(s);
+}
+
+void editorRowInsertChar(std::string &s, int at, int c)
+{
+  if (at < 0 || at > (int)s.size())
+  {
+    at = s.size();
+  }
+  s.insert(at, 1, c);
+  editorUpdateRow(s, true);
+}
+
+/*** editor operations */
+
+void editorInsertChar(int c)
+{
+  if (E.cy == (int)E.rows.size())
+  {
+    std::string s = "";
+    editorAppendRow(s);
+  }
+  editorRowInsertChar(E.rows[E.cy], E.cx, c);
+  E.cx++;
 }
 
 /*** file i/o ***/
@@ -573,6 +603,9 @@ void editorProcessKeypress()
   case static_cast<int>(EditorKey::ARROW_LEFT):
   case static_cast<int>(EditorKey::ARROW_RIGHT):
     editorMoveCursor(c);
+    break;
+  default:
+    editorInsertChar(c);
     break;
   }
 }
