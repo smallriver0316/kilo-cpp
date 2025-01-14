@@ -5,8 +5,10 @@
 
 #include <cctype>
 #include <cerrno>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -56,6 +58,9 @@ struct EditorConfig
   std::string statusmsg;
   time_t statusmsg_time;
 } E;
+
+/*** prototypes ***/
+void editorSetStatusMessage(const char *fmt, ...);
 
 /*** terminal ***/
 
@@ -337,6 +342,16 @@ void editorInsertChar(int c)
 
 /*** file i/o ***/
 
+std::string editorRowsToString()
+{
+  std::string s = "";
+  for (const auto &row : E.rows)
+  {
+    s += row.substr(0, row.size() - 1) + '\n';
+  }
+  return s;
+}
+
 void editorOpen(const char *filename)
 {
   E.filename = std::string(filename);
@@ -362,6 +377,26 @@ void editorOpen(const char *filename)
   }
 
   file.close();
+}
+
+void editorSave()
+{
+  if (E.filename.empty())
+  {
+    return;
+  }
+
+  std::ofstream file(E.filename);
+  if (!file.is_open())
+  {
+    editorSetStatusMessage("Can't save! I/O error: %s", std::strerror(errno));
+    die("fopen");
+  }
+
+  std::string s = editorRowsToString();
+  file << s;
+  file.close();
+  editorSetStatusMessage("%d bytes written to disk", s.size());
 }
 
 /*** output ***/
@@ -502,10 +537,31 @@ void editorRefreshScreen()
   s = "";
 }
 
-template <typename... Args>
-void editorSetStatusMessage(Args &&...args)
+void editorSetStatusMessage(const char *fmt, ...)
 {
-  E.statusmsg = std::string(std::forward<Args>(args)...);
+  va_list args;
+  va_start(args, fmt);
+
+  int size;
+  if ((size = std::vsnprintf(nullptr, 0, fmt, args) + 1) < 0)
+  {
+    va_end(args);
+    return;
+  }
+
+  if (size <= 1)
+  {
+    va_end(args);
+    return;
+  }
+
+  std::vector<char> buf(size);
+
+  va_start(args, fmt);
+  std::vsnprintf(buf.data(), size, fmt, args);
+  va_end(args);
+
+  E.statusmsg = std::string(buf.data());
   E.statusmsg_time = time(NULL);
 }
 
@@ -569,6 +625,9 @@ void editorProcessKeypress()
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
+    break;
+  case CTRL_KEY('s'):
+    editorSave();
     break;
   case static_cast<int>(EditorKey::HOME_KEY):
     E.cx = 0;
@@ -653,7 +712,7 @@ int main(int argc, char **argv)
     editorOpen(argv[1]);
   }
 
-  editorSetStatusMessage("HELP: Ctrl-Q = quit");
+  editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
 
   while (1)
   {
