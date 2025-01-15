@@ -331,6 +331,17 @@ void editorRowInsertChar(std::string &s, int at, int c)
   E.dirty++;
 }
 
+void editorRowDelChar(std::string &s, int at)
+{
+  if (at < 0 || at >= (int)s.size())
+  {
+    return;
+  }
+  s.erase(at, 1);
+  editorUpdateRow(s, true);
+  E.dirty++;
+}
+
 /*** editor operations */
 
 void editorInsertChar(int c)
@@ -342,6 +353,19 @@ void editorInsertChar(int c)
   }
   editorRowInsertChar(E.rows[E.cy], E.cx, c);
   E.cx++;
+}
+
+void editorDelChar()
+{
+  if (E.cy == (int)E.rows.size())
+  {
+    return;
+  }
+  if (E.cx > 0)
+  {
+    editorRowDelChar(E.rows[E.cy], E.cx - 1);
+    E.cx--;
+  }
 }
 
 /*** file i/o ***/
@@ -658,7 +682,11 @@ void editorProcessKeypress()
   case static_cast<int>(EditorKey::BACKSPACE):
   case CTRL_KEY('h'):
   case static_cast<int>(EditorKey::DEL_KEY):
-    /* TODO */
+    if (c == static_cast<int>(EditorKey::DEL_KEY))
+    {
+      editorMoveCursor(static_cast<int>(EditorKey::ARROW_RIGHT));
+    }
+    editorDelChar();
     break;
   case static_cast<int>(EditorKey::PAGE_UP):
   case static_cast<int>(EditorKey::PAGE_DOWN):
