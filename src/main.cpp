@@ -23,6 +23,7 @@
 
 #define KILO_VERSION "0.0.1"
 #define KILO_TAB_STOP 8
+#define KILO_QUIT_TIMES 3
 #define FILENAME_DISPLAY_LEN 20
 
 #define CTRL_KEY(k) ((k) & 0x1f)
@@ -490,9 +491,7 @@ void editorDrawStatusBar(std::string &s)
      << " - "
      << E.rows.size()
      << " lines"
-     << E.dirty
-      ? "(modified)"
-      : "";
+     << (E.dirty ? "(modified)" : "");
   int len = std::min((int)ss.str().size(), E.screencols);
 
   rss << E.cy + 1 << "/" << E.rows.size();
@@ -625,6 +624,7 @@ void editorMoveCursor(int key)
 
 void editorProcessKeypress()
 {
+  static int quit_times = KILO_QUIT_TIMES;
   int c = editorReadKey();
 
   switch (c)
@@ -633,6 +633,12 @@ void editorProcessKeypress()
     /* TODO */
     break;
   case CTRL_KEY('q'):
+    if (E.dirty && quit_times > 0)
+    {
+      editorSetStatusMessage("WARNING!!! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
+      quit_times--;
+      return;
+    }
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
@@ -690,6 +696,8 @@ void editorProcessKeypress()
     editorInsertChar(c);
     break;
   }
+
+  quit_times = KILO_QUIT_TIMES;
 }
 
 /*** init ***/
