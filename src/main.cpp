@@ -53,10 +53,11 @@ struct EditorConfig
   int screencols;
   std::vector<std::string> rows;
   std::vector<std::string> renders;
-  termios orig_termios;
+  int dirty;
   std::string filename;
   std::string statusmsg;
   time_t statusmsg_time;
+  termios orig_termios;
 } E;
 
 /*** prototypes ***/
@@ -315,6 +316,7 @@ void editorAppendRow(std::string &s)
 {
   E.rows.push_back(s + '\0');
   editorUpdateRow(s);
+  E.dirty++;
 }
 
 void editorRowInsertChar(std::string &s, int at, int c)
@@ -325,6 +327,7 @@ void editorRowInsertChar(std::string &s, int at, int c)
   }
   s.insert(at, 1, c);
   editorUpdateRow(s, true);
+  E.dirty++;
 }
 
 /*** editor operations */
@@ -377,6 +380,7 @@ void editorOpen(const char *filename)
   }
 
   file.close();
+  E.dirty = 0;
 }
 
 void editorSave()
@@ -396,6 +400,7 @@ void editorSave()
   std::string s = editorRowsToString();
   file << s;
   file.close();
+  E.dirty = 0;
   editorSetStatusMessage("%d bytes written to disk", s.size());
 }
 
@@ -481,7 +486,13 @@ void editorDrawStatusBar(std::string &s)
   s += "\x1b[7m";
 
   std::stringstream ss, rss;
-  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), FILENAME_DISPLAY_LEN))) << " - " << E.rows.size() << " lines";
+  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), FILENAME_DISPLAY_LEN)))
+     << " - "
+     << E.rows.size()
+     << " lines"
+     << E.dirty
+      ? "(modified)"
+      : "";
   int len = std::min((int)ss.str().size(), E.screencols);
 
   rss << E.cy + 1 << "/" << E.rows.size();
@@ -692,6 +703,7 @@ void initEditor()
   E.coloff = 0;
   E.rows = {};
   E.renders = {};
+  E.dirty = 0;
   E.filename = "";
   E.statusmsg = "\0";
   E.statusmsg_time = 0;
