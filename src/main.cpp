@@ -320,6 +320,17 @@ void editorAppendRow(std::string &s)
   E.dirty++;
 }
 
+void editorDelRow(int at)
+{
+  if (at < 0 || at >= (int)E.rows.size())
+  {
+    return;
+  }
+  E.rows.erase(E.rows.begin() + at);
+  E.renders.erase(E.renders.begin() + at);
+  E.dirty++;
+}
+
 void editorRowInsertChar(std::string &s, int at, int c)
 {
   if (at < 0 || at > (int)s.size())
@@ -327,6 +338,13 @@ void editorRowInsertChar(std::string &s, int at, int c)
     at = s.size();
   }
   s.insert(at, 1, c);
+  editorUpdateRow(s, true);
+  E.dirty++;
+}
+
+void editorRowAppendString(std::string &s, std::string &append)
+{
+  s += append;
   editorUpdateRow(s, true);
   E.dirty++;
 }
@@ -361,10 +379,22 @@ void editorDelChar()
   {
     return;
   }
+  if (E.cx == 0 && E.cy == 0)
+  {
+    return;
+  }
+
   if (E.cx > 0)
   {
     editorRowDelChar(E.rows[E.cy], E.cx - 1);
     E.cx--;
+  }
+  else
+  {
+    E.cy--;
+    E.cx = E.rows[E.cy].size() - 1;
+    editorRowAppendString(E.rows[E.cy], E.rows[E.cy + 1]);
+    editorDelRow(E.cy + 1);
   }
 }
 
