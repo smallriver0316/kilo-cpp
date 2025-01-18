@@ -274,15 +274,11 @@ int editorRowCxToRx(std::string &s, int cx)
   return rx;
 }
 
-void editorUpdateRow(std::string &s, bool is_editing = false)
+void editorUpdateRow(std::string &s, int at)
 {
-  int tabs = 0;
-  for (int i = 0; i < (int)s.size(); i++)
+  if (at < 0 || at > (int)E.rows.size())
   {
-    if (s[i] == '\t')
-    {
-      tabs++;
-    }
+    return;
   }
 
   std::string render = "";
@@ -303,9 +299,9 @@ void editorUpdateRow(std::string &s, bool is_editing = false)
   }
 
   render += '\0';
-  if (is_editing)
+  if (at < (int)E.renders.size())
   {
-    E.renders[E.cy] = render;
+    E.renders[at] = render;
   }
   else
   {
@@ -313,10 +309,15 @@ void editorUpdateRow(std::string &s, bool is_editing = false)
   }
 }
 
-void editorAppendRow(std::string &s)
+void editorInsertRow(std::string &s, int at)
 {
-  E.rows.push_back(s + '\0');
-  editorUpdateRow(s);
+  if (at < 0 || at > (int)E.rows.size())
+  {
+    return;
+  }
+
+  E.rows.insert(E.rows.begin() + at, s + '\0');
+  editorUpdateRow(s, at);
   E.dirty++;
 }
 
@@ -338,14 +339,16 @@ void editorRowInsertChar(std::string &s, int at, int c)
     at = s.size();
   }
   s.insert(at, 1, c);
-  editorUpdateRow(s, true);
+  // TODO: Fix this
+  // editorUpdateRow() doesn't support inserting row.
+  editorUpdateRow(s, at);
   E.dirty++;
 }
 
 void editorRowAppendString(std::string &s, std::string &append)
 {
   s += append;
-  editorUpdateRow(s, true);
+  editorUpdateRow(s, E.cy);
   E.dirty++;
 }
 
@@ -356,7 +359,7 @@ void editorRowDelChar(std::string &s, int at)
     return;
   }
   s.erase(at, 1);
-  editorUpdateRow(s, true);
+  editorUpdateRow(s, at);
   E.dirty++;
 }
 
@@ -367,10 +370,28 @@ void editorInsertChar(int c)
   if (E.cy == (int)E.rows.size())
   {
     std::string s = "";
-    editorAppendRow(s);
+    editorInsertRow(s, (int)E.rows.size());
   }
   editorRowInsertChar(E.rows[E.cy], E.cx, c);
   E.cx++;
+}
+
+void editorInsertNewLine()
+{
+  std::string newline = "";
+  if (E.cx == 0)
+  {
+    editorInsertRow(newline, E.cy);
+  }
+  else
+  {
+    newline = E.rows[E.cy].substr(E.cx);
+    editorInsertRow(newline, E.cy + 1);
+    E.rows[E.cy] = E.rows[E.cy].substr(0, E.cx) + '\0';
+    editorUpdateRow(E.rows[E.cy], E.cy);
+  }
+  E.cy++;
+  E.cx = 0;
 }
 
 void editorDelChar()
@@ -423,15 +444,11 @@ void editorOpen(const char *filename)
   std::string line;
   while (std::getline(file, line))
   {
-    if (line[line.size() - 1] == '\n')
+    while (line.size() && (line[line.size() - 1] == '\n' || line[line.size() - 1] == '\r'))
     {
       line.erase(line.size() - 1);
     }
-    if (line[line.size() - 1] == '\r')
-    {
-      line.erase(line.size() - 1);
-    }
-    editorAppendRow(line);
+    editorInsertRow(line, (int)E.rows.size());
   }
 
   file.close();
@@ -684,7 +701,7 @@ void editorProcessKeypress()
   switch (c)
   {
   case '\r':
-    /* TODO */
+    editorInsertNewLine();
     break;
   case CTRL_KEY('q'):
     if (E.dirty && quit_times > 0)
