@@ -317,6 +317,8 @@ void editorInsertRow(std::string &s, int at)
   }
 
   E.rows.insert(E.rows.begin() + at, s + '\0');
+  // TODO: Fix this
+  // editorUpdateRow() doesn't support inserting row.
   editorUpdateRow(s, at);
   E.dirty++;
 }
@@ -339,8 +341,6 @@ void editorRowInsertChar(std::string &s, int at, int c)
     at = s.size();
   }
   s.insert(at, 1, c);
-  // TODO: Fix this
-  // editorUpdateRow() doesn't support inserting row.
   editorUpdateRow(s, at);
   E.dirty++;
 }
@@ -385,6 +385,9 @@ void editorInsertNewLine()
   }
   else
   {
+    // TODO: Fix this
+    // newline already contains '\0' at the end.
+    // but editorInsertRow() adds '\0' at the end of the row.
     newline = E.rows[E.cy].substr(E.cx);
     editorInsertRow(newline, E.cy + 1);
     E.rows[E.cy] = E.rows[E.cy].substr(0, E.cx) + '\0';
