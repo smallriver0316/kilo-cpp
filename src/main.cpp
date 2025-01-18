@@ -5,8 +5,10 @@
 
 #include <cctype>
 #include <cerrno>
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -21,12 +23,14 @@
 
 #define KILO_VERSION "0.0.1"
 #define KILO_TAB_STOP 8
+#define KILO_QUIT_TIMES 3
 #define FILENAME_DISPLAY_LEN 20
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 enum class EditorKey
 {
+  BACKSPACE = 127,
   ARROW_LEFT = 1000,
   ARROW_RIGHT,
   ARROW_UP,
@@ -50,11 +54,15 @@ struct EditorConfig
   int screencols;
   std::vector<std::string> rows;
   std::vector<std::string> renders;
-  termios orig_termios;
+  int dirty;
   std::string filename;
   std::string statusmsg;
   time_t statusmsg_time;
+  termios orig_termios;
 } E;
+
+/*** prototypes ***/
+void editorSetStatusMessage(const char *fmt, ...);
 
 /*** terminal ***/
 
@@ -266,15 +274,11 @@ int editorRowCxToRx(std::string &s, int cx)
   return rx;
 }
 
-void editorUpdateRow(std::string &s)
+void editorUpdateRow(std::string &s, int at)
 {
-  int tabs = 0;
-  for (int i = 0; i < (int)s.size(); i++)
+  if (at < 0 || at > (int)E.rows.size())
   {
-    if (s[i] == '\t')
-    {
-      tabs++;
-    }
+    return;
   }
 
   std::string render = "";
@@ -295,16 +299,140 @@ void editorUpdateRow(std::string &s)
   }
 
   render += '\0';
-  E.renders.push_back(render);
+  if (at < (int)E.renders.size())
+  {
+    E.renders[at] = render;
+  }
+  else
+  {
+    E.renders.push_back(render);
+  }
 }
 
-void editorAppendRow(std::string &s)
+void editorInsertRow(std::string &s, int at)
 {
-  E.rows.push_back(s + '\0');
-  editorUpdateRow(s);
+  if (at < 0 || at > (int)E.rows.size())
+  {
+    return;
+  }
+
+  E.rows.insert(E.rows.begin() + at, s + '\0');
+  // TODO: Fix this
+  // editorUpdateRow() doesn't support inserting row.
+  editorUpdateRow(s, at);
+  E.dirty++;
+}
+
+void editorDelRow(int at)
+{
+  if (at < 0 || at >= (int)E.rows.size())
+  {
+    return;
+  }
+  E.rows.erase(E.rows.begin() + at);
+  E.renders.erase(E.renders.begin() + at);
+  E.dirty++;
+}
+
+void editorRowInsertChar(std::string &s, int at, int c)
+{
+  if (at < 0 || at > (int)s.size())
+  {
+    at = s.size();
+  }
+  s.insert(at, 1, c);
+  editorUpdateRow(s, at);
+  E.dirty++;
+}
+
+void editorRowAppendString(std::string &s, std::string &append)
+{
+  s += append;
+  editorUpdateRow(s, E.cy);
+  E.dirty++;
+}
+
+void editorRowDelChar(std::string &s, int at)
+{
+  if (at < 0 || at >= (int)s.size())
+  {
+    return;
+  }
+  s.erase(at, 1);
+  editorUpdateRow(s, at);
+  E.dirty++;
+}
+
+/*** editor operations */
+
+void editorInsertChar(int c)
+{
+  if (E.cy == (int)E.rows.size())
+  {
+    std::string s = "";
+    editorInsertRow(s, (int)E.rows.size());
+  }
+  editorRowInsertChar(E.rows[E.cy], E.cx, c);
+  E.cx++;
+}
+
+void editorInsertNewLine()
+{
+  std::string newline = "";
+  if (E.cx == 0)
+  {
+    editorInsertRow(newline, E.cy);
+  }
+  else
+  {
+    // TODO: Fix this
+    // newline already contains '\0' at the end.
+    // but editorInsertRow() adds '\0' at the end of the row.
+    newline = E.rows[E.cy].substr(E.cx);
+    editorInsertRow(newline, E.cy + 1);
+    E.rows[E.cy] = E.rows[E.cy].substr(0, E.cx) + '\0';
+    editorUpdateRow(E.rows[E.cy], E.cy);
+  }
+  E.cy++;
+  E.cx = 0;
+}
+
+void editorDelChar()
+{
+  if (E.cy == (int)E.rows.size())
+  {
+    return;
+  }
+  if (E.cx == 0 && E.cy == 0)
+  {
+    return;
+  }
+
+  if (E.cx > 0)
+  {
+    editorRowDelChar(E.rows[E.cy], E.cx - 1);
+    E.cx--;
+  }
+  else
+  {
+    E.cy--;
+    E.cx = E.rows[E.cy].size() - 1;
+    editorRowAppendString(E.rows[E.cy], E.rows[E.cy + 1]);
+    editorDelRow(E.cy + 1);
+  }
 }
 
 /*** file i/o ***/
+
+std::string editorRowsToString()
+{
+  std::string s = "";
+  for (const auto &row : E.rows)
+  {
+    s += row.substr(0, row.size() - 1) + '\n';
+  }
+  return s;
+}
 
 void editorOpen(const char *filename)
 {
@@ -319,18 +447,36 @@ void editorOpen(const char *filename)
   std::string line;
   while (std::getline(file, line))
   {
-    if (line[line.size() - 1] == '\n')
+    while (line.size() && (line[line.size() - 1] == '\n' || line[line.size() - 1] == '\r'))
     {
       line.erase(line.size() - 1);
     }
-    if (line[line.size() - 1] == '\r')
-    {
-      line.erase(line.size() - 1);
-    }
-    editorAppendRow(line);
+    editorInsertRow(line, (int)E.rows.size());
   }
 
   file.close();
+  E.dirty = 0;
+}
+
+void editorSave()
+{
+  if (E.filename.empty())
+  {
+    return;
+  }
+
+  std::ofstream file(E.filename);
+  if (!file.is_open())
+  {
+    editorSetStatusMessage("Can't save! I/O error: %s", std::strerror(errno));
+    die("fopen");
+  }
+
+  std::string s = editorRowsToString();
+  file << s;
+  file.close();
+  E.dirty = 0;
+  editorSetStatusMessage("%d bytes written to disk", s.size());
 }
 
 /*** output ***/
@@ -415,7 +561,11 @@ void editorDrawStatusBar(std::string &s)
   s += "\x1b[7m";
 
   std::stringstream ss, rss;
-  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), FILENAME_DISPLAY_LEN))) << " - " << E.rows.size() << " lines";
+  ss << (E.filename.empty() ? "[No Name]" : E.filename.substr(0, std::min((int)E.filename.size(), FILENAME_DISPLAY_LEN)))
+     << " - "
+     << E.rows.size()
+     << " lines"
+     << (E.dirty ? "(modified)" : "");
   int len = std::min((int)ss.str().size(), E.screencols);
 
   rss << E.cy + 1 << "/" << E.rows.size();
@@ -471,10 +621,31 @@ void editorRefreshScreen()
   s = "";
 }
 
-template <typename... Args>
-void editorSetStatusMessage(Args &&...args)
+void editorSetStatusMessage(const char *fmt, ...)
 {
-  E.statusmsg = std::string(std::forward<Args>(args)...);
+  va_list args;
+  va_start(args, fmt);
+
+  int size;
+  if ((size = std::vsnprintf(nullptr, 0, fmt, args) + 1) < 0)
+  {
+    va_end(args);
+    return;
+  }
+
+  if (size <= 1)
+  {
+    va_end(args);
+    return;
+  }
+
+  std::vector<char> buf(size);
+
+  va_start(args, fmt);
+  std::vsnprintf(buf.data(), size, fmt, args);
+  va_end(args);
+
+  E.statusmsg = std::string(buf.data());
   E.statusmsg_time = time(NULL);
 }
 
@@ -527,14 +698,27 @@ void editorMoveCursor(int key)
 
 void editorProcessKeypress()
 {
+  static int quit_times = KILO_QUIT_TIMES;
   int c = editorReadKey();
 
   switch (c)
   {
+  case '\r':
+    editorInsertNewLine();
+    break;
   case CTRL_KEY('q'):
+    if (E.dirty && quit_times > 0)
+    {
+      editorSetStatusMessage("WARNING!!! File has unsaved changes. Press Ctrl-Q %d more times to quit.", quit_times);
+      quit_times--;
+      return;
+    }
     write(STDOUT_FILENO, "\x1b[2J", 4);
     write(STDOUT_FILENO, "\x1b[H", 3);
     exit(0);
+    break;
+  case CTRL_KEY('s'):
+    editorSave();
     break;
   case static_cast<int>(EditorKey::HOME_KEY):
     E.cx = 0;
@@ -544,6 +728,15 @@ void editorProcessKeypress()
     {
       E.cx = E.rows[E.cy].size();
     }
+    break;
+  case static_cast<int>(EditorKey::BACKSPACE):
+  case CTRL_KEY('h'):
+  case static_cast<int>(EditorKey::DEL_KEY):
+    if (c == static_cast<int>(EditorKey::DEL_KEY))
+    {
+      editorMoveCursor(static_cast<int>(EditorKey::ARROW_RIGHT));
+    }
+    editorDelChar();
     break;
   case static_cast<int>(EditorKey::PAGE_UP):
   case static_cast<int>(EditorKey::PAGE_DOWN):
@@ -574,7 +767,15 @@ void editorProcessKeypress()
   case static_cast<int>(EditorKey::ARROW_RIGHT):
     editorMoveCursor(c);
     break;
+  case CTRL_KEY('l'):
+  case '\x1b':
+    break;
+  default:
+    editorInsertChar(c);
+    break;
   }
+
+  quit_times = KILO_QUIT_TIMES;
 }
 
 /*** init ***/
@@ -588,6 +789,7 @@ void initEditor()
   E.coloff = 0;
   E.rows = {};
   E.renders = {};
+  E.dirty = 0;
   E.filename = "";
   E.statusmsg = "\0";
   E.statusmsg_time = 0;
@@ -608,7 +810,7 @@ int main(int argc, char **argv)
     editorOpen(argv[1]);
   }
 
-  editorSetStatusMessage("HELP: Ctrl-Q = quit");
+  editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
 
   while (1)
   {
