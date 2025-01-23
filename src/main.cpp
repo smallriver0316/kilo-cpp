@@ -63,6 +63,8 @@ struct EditorConfig
 
 /*** prototypes ***/
 void editorSetStatusMessage(const char *fmt, ...);
+void editorRefreshScreen();
+std::string editorPrompt(std::string prompt, void (*callback)(std::string &, int));
 
 /*** terminal ***/
 
@@ -274,6 +276,26 @@ int editorRowCxToRx(std::string &s, int cx)
   return rx;
 }
 
+int editorRowRxToCx(std::string &s, int rx)
+{
+  int cur_rx = 0, cx = 0;
+  for (cx = 0; cx < (int)s.size(); cx++)
+  {
+    if (s[cx] == '\t')
+    {
+      cur_rx += (KILO_TAB_STOP - 1) - (cur_rx % KILO_TAB_STOP);
+    }
+    cur_rx++;
+
+    if (cur_rx > rx)
+    {
+      return cx;
+    }
+  }
+
+  return cx;
+}
+
 void editorUpdateRow(std::string &s, int at)
 {
   if (at < 0 || at > (int)E.rows.size())
@@ -462,7 +484,12 @@ void editorSave()
 {
   if (E.filename.empty())
   {
-    return;
+    E.filename = editorPrompt("Save as: %s (ESC to cancel)", nullptr);
+    if (E.filename.empty())
+    {
+      editorSetStatusMessage("Save aborted");
+      return;
+    }
   }
 
   std::ofstream file(E.filename);
@@ -477,6 +504,85 @@ void editorSave()
   file.close();
   E.dirty = 0;
   editorSetStatusMessage("%d bytes written to disk", s.size());
+}
+
+/*** find ***/
+
+void editorFindCallback(std::string &query, int key)
+{
+  static int last_match = -1;
+  static int direction = 1;
+
+  if (key == '\r' || key == '\x1b')
+  {
+    last_match = -1;
+    direction = 1;
+    return;
+  }
+  else if (key == static_cast<int>(EditorKey::ARROW_RIGHT) ||
+           key == static_cast<int>(EditorKey::ARROW_DOWN))
+  {
+    direction = 1;
+  }
+  else if (key == static_cast<int>(EditorKey::ARROW_LEFT) ||
+           key == static_cast<int>(EditorKey::ARROW_UP))
+  {
+    direction = -1;
+  }
+  else
+  {
+    last_match = -1;
+    direction = 1;
+  }
+
+  if (last_match == -1)
+  {
+    direction = 1;
+  }
+
+  int current = last_match;
+  int i = 0;
+  for (const auto &render : E.renders)
+  {
+    current += direction;
+    if (current == -1)
+    {
+      current = E.rows.size() - 1;
+    }
+    else if (current == (int)E.rows.size())
+    {
+      current = 0;
+    }
+
+    const auto pos = render.find(query);
+    if (pos != std::string::npos)
+    {
+      last_match = current;
+      E.cy = current;
+      E.cx = editorRowRxToCx(E.rows[i], (int)pos);
+      E.rowoff = E.renders.size();
+      break;
+    }
+    i++;
+  }
+}
+
+void editorFind()
+{
+  int saved_cx = E.cx;
+  int saved_cy = E.cy;
+  int saved_coloff = E.coloff;
+  int saved_rowoff = E.rowoff;
+
+  std::string query = editorPrompt("Search: %s (Use ESC/Arrows/Enter)", editorFindCallback);
+
+  if (query.empty())
+  {
+    E.cx = saved_cx;
+    E.cy = saved_cy;
+    E.coloff = saved_coloff;
+    E.rowoff = saved_rowoff;
+  }
 }
 
 /*** output ***/
@@ -649,7 +755,58 @@ void editorSetStatusMessage(const char *fmt, ...)
   E.statusmsg_time = time(NULL);
 }
 
-/** input ***/
+/*** input ***/
+
+std::string editorPrompt(std::string prompt, void (*callback)(std::string &, int) = nullptr)
+{
+  std::string s = "\0";
+  while (1)
+  {
+    editorSetStatusMessage(prompt.c_str(), s.c_str());
+    editorRefreshScreen();
+
+    int c = editorReadKey();
+    if (c == static_cast<int>(EditorKey::DEL_KEY) ||
+        c == CTRL_KEY('h') ||
+        c == static_cast<int>(EditorKey::BACKSPACE))
+    {
+      if (s.size())
+      {
+        s.pop_back();
+      }
+    }
+    else if (c == '\x1b')
+    {
+      editorSetStatusMessage("");
+      if (callback)
+      {
+        callback(s, c);
+      }
+      return "";
+    }
+    else if (c == '\r')
+    {
+      if (s.size())
+      {
+        editorSetStatusMessage("");
+        if (callback)
+        {
+          callback(s, c);
+        }
+        return s;
+      }
+    }
+    else if (!iscntrl(c) && c < 128)
+    {
+      s += c;
+    }
+
+    if (callback)
+    {
+      callback(s, c);
+    }
+  }
+}
 
 void editorMoveCursor(int key)
 {
@@ -728,6 +885,9 @@ void editorProcessKeypress()
     {
       E.cx = E.rows[E.cy].size();
     }
+    break;
+  case CTRL_KEY('f'):
+    editorFind();
     break;
   case static_cast<int>(EditorKey::BACKSPACE):
   case CTRL_KEY('h'):
@@ -810,7 +970,7 @@ int main(int argc, char **argv)
     editorOpen(argv[1]);
   }
 
-  editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
+  editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find");
 
   while (1)
   {
