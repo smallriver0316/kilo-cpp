@@ -447,8 +447,27 @@ void Editor::setStatusMessage(const char *fmt, ...)
 {
   va_list ap;
   va_start(ap, fmt);
-  vsnprintf(&m_statusmsg[0], m_screencols, fmt, ap);
+
+  int size;
+
+  if ((size = std::vsnprintf(nullptr, 0, fmt, ap) + 1) < 0)
+  {
+    va_end(ap);
+    return;
+  }
+
+  if (size <= 1)
+  {
+    va_end(ap);
+    return;
+  }
+
+  std::vector<char> buf(size);
+  va_start(ap, fmt);
+  vsnprintf(buf.data(), m_screencols, fmt, ap);
   va_end(ap);
+
+  m_statusmsg = std::string(buf.data());
   m_statusmsg_time = time(NULL);
 }
 
