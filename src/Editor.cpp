@@ -4,7 +4,7 @@
 #define _BSD_SOURCE
 
 #include "Editor.hpp"
-#include "TerminalManager.hpp"
+#include "EditorUtils.hpp"
 
 #include <cctype>
 #include <cstdarg>
@@ -25,10 +25,10 @@
 
 Editor::Editor()
 {
-  TerminalManager::enableRawMode();
+  terminal_manager::enableRawMode();
 
-  if (TerminalManager::getWindowSize(&m_screenrows, &m_screencols) == -1)
-    TerminalManager::die("getWindowSize");
+  if (terminal_manager::getWindowSize(&m_screenrows, &m_screencols) == -1)
+    terminal_manager::die("getWindowSize");
 
   m_screenrows -= 2;
 }
@@ -201,7 +201,7 @@ void Editor::open(const char *filename)
 
   std::ifstream file(filename);
   if (!file.is_open())
-    TerminalManager::die("fopen");
+    terminal_manager::die("fopen");
 
   std::string line;
   while (std::getline(file, line))
@@ -232,7 +232,7 @@ void Editor::save()
   if (!file.is_open())
   {
     setStatusMessage("Can't save! I/O error: %s", std::strerror(errno));
-    TerminalManager::die("fopen");
+    terminal_manager::die("fopen");
   }
 
   std::string s = convertRowsToString();
@@ -462,7 +462,7 @@ std::string Editor::fromPrompt(std::string prompt, std::function<void(std::strin
     setStatusMessage(prompt.c_str(), s.c_str());
     refreshScreen();
 
-    int c = TerminalManager::readKey();
+    int c = terminal_manager::readKey();
     if (c == static_cast<int>(EditorKey::DEL_KEY) ||
         c == CTRL_KEY('h') ||
         c == static_cast<int>(EditorKey::BACKSPACE))
@@ -534,7 +534,7 @@ void Editor::moveCursor(int key)
 void Editor::processKeypress()
 {
   static int quit_times = KILO_QUIT_TIMES;
-  int c = TerminalManager::readKey();
+  int c = terminal_manager::readKey();
 
   switch (c)
   {
