@@ -69,7 +69,7 @@ void Editor::updateRow(EditorRow &erow)
   if (erow.row.empty())
     return;
 
-  std::string render{};
+  std::string render = "";
   for (int i = 0; i < static_cast<int>(erow.row.size()); ++i)
   {
     if (erow.row[i] == '\t')
@@ -84,18 +84,20 @@ void Editor::updateRow(EditorRow &erow)
     }
   }
 
-  erow.rendered = std::move(render);
+  erow.rendered = render;
 }
 
-void Editor::insertRow(int at, const std::string &s)
+bool Editor::insertRow(int at, const std::string &s)
 {
   if (at < 0 || at > static_cast<int>(m_rows.size()))
-    return;
+    return false;
 
   m_rows.insert(m_rows.begin() + at, EditorRow());
-  m_rows[at].row = s + '\0';
+  m_rows[at].row = s;
   updateRow(m_rows[at]);
   m_dirty++;
+
+  return true;
 }
 
 void Editor::deleteRow(int at)
@@ -151,10 +153,18 @@ void Editor::insertNewline()
     insertRow(m_cy, "");
   else
   {
-    auto &row = m_rows[m_cy];
-    insertRow(m_cy + 1, row.row.substr(m_cx));
-    row.row = row.row.substr(0, m_cx);
-    updateRow(row);
+    // Note:
+    // when inserting newline with insertRow(), the vector of m_row will reallocate memory,
+    // then the reference to m_row will be invalid.
+    // In order to avoid this, we need to reserve memory accounting for the new row.
+    m_rows.reserve(m_rows.size() + 1);
+
+    auto &erow = m_rows[m_cy];
+    if (insertRow(m_cy + 1, erow.row.substr(m_cx)))
+    {
+      erow.row = erow.row.substr(0, m_cx);
+      updateRow(erow);
+    }
   }
 
   m_cy++;
@@ -346,7 +356,7 @@ void Editor::drawRows(std::string &s)
     {
       if (m_rows.empty() && y == m_screenrows / 3)
       {
-        std::string welcome = "Kilo editor -- version " + std::string(KILO_VERSION);
+        std::string welcome = "Kilo++ editor -- version " + std::string(KILO_VERSION);
         if (welcome.size() > static_cast<std::size_t>(m_screencols))
           welcome.resize(m_screencols);
 

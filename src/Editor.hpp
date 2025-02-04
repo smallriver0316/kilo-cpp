@@ -25,25 +25,17 @@ class Editor
 public:
   Editor();
 
-  void open(const char *filename);
-
-  void refreshScreen();
-
-  void setStatusMessage(const char *fmt, ...);
-
-  void processKeypress();
-
   void run(int argc, char *argv[]);
 
-private:
   /*** row operations ***/
+
   void convertRowCxToRx(EditorRow &erow);
 
   void convertRowRxToCx(EditorRow &erow);
 
   void updateRow(EditorRow &erow);
 
-  void insertRow(int at, const std::string &s);
+  bool insertRow(int at, const std::string &s);
 
   void deleteRow(int at);
 
@@ -54,6 +46,7 @@ private:
   void deleteCharFromRow(EditorRow &erow, int at);
 
   /*** editor operations ***/
+
   void insertChar(int c);
 
   void insertNewline();
@@ -61,16 +54,21 @@ private:
   void deleteChar();
 
   /*** file i/o ***/
+
   std::string convertRowsToString();
+
+  void open(const char *filename);
 
   void save();
 
   /*** find ***/
+
   void findCallback(std::string &query, int key);
 
   void find();
 
   /*** output ***/
+
   void scroll();
 
   void drawRows(std::string &s);
@@ -79,12 +77,21 @@ private:
 
   void drawMessageBar(std::string &s);
 
+  void refreshScreen();
+
+  void setStatusMessage(const char *fmt, ...);
+
   /*** input ***/
+
   std::string fromPrompt(std::string prompt, std::function<void(std::string &, int)> callback = nullptr);
 
   void moveCursor(int key);
 
+  void processKeypress();
+
+private:
   /*** members ***/
+
   std::vector<EditorRow> m_rows;
   int m_cx = 0, m_cy = 0;
   int m_rx = 0;
