@@ -87,34 +87,34 @@ void Editor::updateRow(EditorRow &erow)
   erow.rendered = render;
 }
 
-bool Editor::insertRow(int at, const std::string &s)
+bool Editor::insertRow(int yindex, const std::string &s)
 {
-  if (at < 0 || at > static_cast<int>(m_rows.size()))
+  if (yindex < 0 || yindex > static_cast<int>(m_rows.size()))
     return false;
 
-  m_rows.insert(m_rows.begin() + at, EditorRow());
-  m_rows[at].row = s;
-  updateRow(m_rows[at]);
+  m_rows.insert(m_rows.begin() + yindex, EditorRow());
+  m_rows[yindex].row = s;
+  updateRow(m_rows[yindex]);
   m_dirty++;
 
   return true;
 }
 
-void Editor::deleteRow(int at)
+void Editor::deleteRow(int yindex)
 {
-  if (at < 0 || at >= static_cast<int>(m_rows.size()))
+  if (yindex < 0 || yindex >= static_cast<int>(m_rows.size()))
     return;
 
-  m_rows.erase(m_rows.begin() + at);
+  m_rows.erase(m_rows.begin() + yindex);
   m_dirty++;
 }
 
-void Editor::insertCharIntoRow(EditorRow &erow, int at, int c)
+void Editor::insertCharIntoRow(EditorRow &erow, int yindex, int c)
 {
-  if (at < 0 || at > static_cast<int>(erow.row.size()))
-    at = erow.row.size();
+  if (yindex < 0 || yindex > static_cast<int>(erow.row.size()))
+    yindex = erow.row.size();
 
-  erow.row.insert(at, 1, c);
+  erow.row.insert(yindex, 1, c);
   updateRow(erow);
   m_dirty++;
 }
@@ -126,12 +126,12 @@ void Editor::appendStringToRow(EditorRow &erow, const std::string &s)
   m_dirty++;
 }
 
-void Editor::deleteCharFromRow(EditorRow &erow, int at)
+void Editor::deleteCharFromRow(EditorRow &erow, int xindex)
 {
-  if (at < 0 || at >= static_cast<int>(erow.row.size()))
+  if (xindex < 0 || xindex >= static_cast<int>(erow.row.size()))
     return;
 
-  erow.row.erase(at, 1);
+  erow.row.erase(xindex, 1);
   updateRow(erow);
   m_dirty++;
 }
@@ -154,8 +154,8 @@ void Editor::insertNewline()
   else
   {
     // Note:
-    // when inserting newline with insertRow(), the vector of m_row will reallocate memory,
-    // then the reference to m_row will be invalid.
+    // when inserting newline with insertRow(), the vector of m_row will reallocate its memory,
+    // then the reference to m_rows will become invalid.
     // In order to avoid this, we need to reserve memory accounting for the new row.
     m_rows.reserve(m_rows.size() + 1);
 
@@ -528,7 +528,6 @@ std::string Editor::fromPrompt(std::string prompt, std::function<void(std::strin
 
 void Editor::moveCursor(int key)
 {
-  auto &row = m_rows[m_cy];
   switch (key)
   {
   case static_cast<int>(EditorKey::ARROW_UP):
@@ -541,10 +540,17 @@ void Editor::moveCursor(int key)
     break;
   case static_cast<int>(EditorKey::ARROW_LEFT):
     if (m_cx > 0)
+    {
       m_cx--;
+    }
+    else if (m_cy > 0)
+    {
+      m_cy--;
+      m_cx = static_cast<int>(m_rows[m_cy].row.size());
+    }
     break;
   case static_cast<int>(EditorKey::ARROW_RIGHT):
-    if (m_cx < static_cast<int>(row.row.size()))
+    if (m_cx < static_cast<int>(m_rows[m_cy].row.size()))
     {
       m_cx++;
     }
@@ -556,8 +562,8 @@ void Editor::moveCursor(int key)
     break;
   }
 
-  if (m_cx > static_cast<int>(row.row.size()))
-    m_cx = static_cast<int>(row.row.size());
+  if (m_cx > static_cast<int>(m_rows[m_cy].row.size()))
+    m_cx = static_cast<int>(m_rows[m_cy].row.size());
 }
 
 void Editor::processKeypress()

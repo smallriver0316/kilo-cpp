@@ -35,15 +35,15 @@ public:
 
   void updateRow(EditorRow &erow);
 
-  bool insertRow(int at, const std::string &s);
+  bool insertRow(int yindex, const std::string &s);
 
-  void deleteRow(int at);
+  void deleteRow(int yindex);
 
-  void insertCharIntoRow(EditorRow &erow, int at, int c);
+  void insertCharIntoRow(EditorRow &erow, int yindex, int c);
 
   void appendStringToRow(EditorRow &erow, const std::string &s);
 
-  void deleteCharFromRow(EditorRow &erow, int at);
+  void deleteCharFromRow(EditorRow &erow, int xindex);
 
   /*** editor operations ***/
 
