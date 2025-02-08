@@ -380,7 +380,14 @@ void Editor::drawRows(std::string &s)
       if (len < 0)
         len = 0;
 
-      s += m_rows[filerow].rendered.substr(m_coloff, std::min(len, m_screencols));
+      for (int i = 0; i < len; ++i)
+      {
+        char c = m_rows[filerow].rendered[m_coloff + i];
+        if (std::isdigit(c))
+          s += ("\x1b[31m" + std::string(1, c) + "\x1b[39m");
+        else
+          s += std::string(1, c);
+      }
     }
 
     s += "\x1b[K\r\n";
