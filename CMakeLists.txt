@@ -11,11 +11,15 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(DEFAULT_BUILD_TYPE "Debug")
 
+add_subdirectory(src)
+
 if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   message(FATAL_ERROR "In-source builds not allowed. Please make a new directory (called a buld directory) and run CMake from there. You may need to remove CMakeCache.txt.")
 endif()
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME} src/kilo.cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE libkilo++)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -pedantic)
 
