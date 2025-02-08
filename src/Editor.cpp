@@ -66,9 +66,6 @@ void Editor::convertRowRxToCx(EditorRow &erow)
 
 void Editor::updateRow(EditorRow &erow)
 {
-  if (erow.row.empty())
-    return;
-
   std::string render = "";
   for (int i = 0; i < static_cast<int>(erow.row.size()); ++i)
   {
@@ -179,16 +176,16 @@ void Editor::deleteChar()
   if (m_cx == 0 && m_cy == 0)
     return;
 
-  auto &row = m_rows[m_cy];
+  auto &erow = m_rows[m_cy];
   if (m_cx > 0)
   {
-    deleteCharFromRow(row, m_cx - 1);
+    deleteCharFromRow(erow, m_cx - 1);
     m_cx--;
   }
   else
   {
     m_cx = static_cast<int>(m_rows[m_cy - 1].row.size());
-    appendStringToRow(m_rows[m_cy - 1], row.row);
+    appendStringToRow(m_rows[m_cy - 1], erow.row);
     deleteRow(m_cy);
     m_cy--;
   }
