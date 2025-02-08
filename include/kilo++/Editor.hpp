@@ -17,7 +17,7 @@ struct EditorRow
 
   std::string row;
   std::string rendered;
-  std::vector<unsigned char> hl;
+  std::vector<EditorHighlight> hl;
 };
 
 class Editor
@@ -26,6 +26,10 @@ public:
   Editor();
 
   void run(int argc, char *argv[]);
+
+  /*** syntax highlighting ***/
+
+  void updateSyntax(EditorRow &erow);
 
   /*** row operations ***/
 

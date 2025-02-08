@@ -33,6 +33,21 @@ Editor::Editor()
   m_screenrows -= 2;
 }
 
+/*** syntax highlighting ***/
+
+void Editor::updateSyntax(EditorRow &erow)
+{
+  erow.hl.resize(erow.rendered.size(), EditorHighlight::NORMAL);
+
+  for (size_t i = 0; i < erow.rendered.size(); ++i)
+  {
+    if (std::isdigit(erow.rendered[i]))
+    {
+      erow.hl[i] = EditorHighlight::NUMBER;
+    }
+  }
+}
+
 /*** row operations ***/
 
 void Editor::convertRowCxToRx(EditorRow &erow)
@@ -81,7 +96,9 @@ void Editor::updateRow(EditorRow &erow)
     }
   }
 
+  render += "\0";
   erow.rendered = render;
+  updateSyntax(erow);
 }
 
 bool Editor::insertRow(int yindex, const std::string &s)
