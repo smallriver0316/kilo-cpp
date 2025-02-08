@@ -3,8 +3,8 @@
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
 
-#include "Editor.hpp"
-#include "EditorUtils.hpp"
+#include "kilo++/Editor.hpp"
+#include "kilo++/EditorUtils.hpp"
 
 #include <cctype>
 #include <cstdarg>

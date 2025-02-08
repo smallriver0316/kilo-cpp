@@ -1,4 +1,4 @@
-#include "Editor.hpp"
+#include "kilo++/Editor.hpp"
 
 int main(int argc, char **argv)
 {
