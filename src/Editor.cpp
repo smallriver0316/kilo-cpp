@@ -48,6 +48,17 @@ void Editor::updateSyntax(EditorRow &erow)
   }
 }
 
+int Editor::convertSyntaxToColor(EditorHighlight hl)
+{
+  switch (hl)
+  {
+  case EditorHighlight::NUMBER:
+    return 31;
+  default:
+    return 37;
+  }
+}
+
 /*** row operations ***/
 
 void Editor::convertRowCxToRx(EditorRow &erow)
@@ -397,14 +408,34 @@ void Editor::drawRows(std::string &s)
       if (len < 0)
         len = 0;
 
+      int current_color = -1;
       for (int i = 0; i < len; ++i)
       {
-        char c = m_rows[filerow].rendered[m_coloff + i];
-        if (std::isdigit(c))
-          s += ("\x1b[31m" + std::string(1, c) + "\x1b[39m");
-        else
+        const auto &c = m_rows[filerow].rendered[m_coloff + i];
+        const auto &hl = m_rows[filerow].hl[m_coloff + i];
+        if (hl == EditorHighlight::NORMAL)
+        {
+          if (current_color != -1)
+          {
+            s += "\x1b[39m";
+            current_color = -1;
+          }
           s += std::string(1, c);
+        }
+        else
+        {
+          const auto color = convertSyntaxToColor(hl);
+          if (current_color != color)
+          {
+            current_color = color;
+            std::vector<char> buf(16);
+            snprintf(buf.data(), buf.size(), "\x1b[%dm", color);
+            s += buf.data();
+          }
+          s += std::string(1, c);
+        }
       }
+      s += "\x1b[39m";
     }
 
     s += "\x1b[K\r\n";

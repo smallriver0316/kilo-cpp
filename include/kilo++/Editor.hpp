@@ -31,6 +31,8 @@ public:
 
   void updateSyntax(EditorRow &erow);
 
+  int convertSyntaxToColor(EditorHighlight hl);
+
   /*** row operations ***/
 
   void convertRowCxToRx(EditorRow &erow);
