@@ -290,6 +290,15 @@ void Editor::findCallback(std::string &query, int key)
   static int last_match = -1;
   static int direction = 1;
 
+  static int saved_hl_line;
+  static std::vector<EditorHighlight> saved_hl;
+
+  if (!saved_hl.empty())
+  {
+    std::copy(saved_hl.begin(), saved_hl.end(), m_rows[saved_hl_line].hl.begin());
+    saved_hl.clear();
+  }
+
   if (key == '\r' || key == '\x1b')
   {
     last_match = -1;
@@ -326,16 +335,23 @@ void Editor::findCallback(std::string &query, int key)
       current = 0;
 
     const auto &render = row.rendered;
-    auto found_pos = render.find(query);
-    if (found_pos != std::string::npos)
+    auto match_begin = render.find(query);
+    if (match_begin != std::string::npos)
     {
       last_match = current;
       m_cy = current;
-      m_cx = convertRowRxToCx(m_rows[current], static_cast<int>(found_pos));
+      m_cx = convertRowRxToCx(m_rows[current], static_cast<int>(match_begin));
       m_rowoff = m_rows.size();
 
-      std::fill(row.hl.begin() + found_pos,
-                row.hl.begin() + found_pos + query.size(),
+      saved_hl_line = current;
+      saved_hl.reserve(row.rendered.size());
+      std::copy(row.hl.begin(), row.hl.end(), std::back_inserter(saved_hl));
+
+      const auto match_end = row.hl.begin() + match_begin + query.size() > row.hl.end()
+                                 ? row.hl.end() - row.hl.begin()
+                                 : match_begin + query.size();
+      std::fill(row.hl.begin() + match_begin,
+                row.hl.begin() + match_end,
                 EditorHighlight::MATCH);
       return;
     }
