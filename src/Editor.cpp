@@ -6,6 +6,7 @@
 #include "kilo++/Editor.hpp"
 #include "kilo++/EditorUtils.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdarg>
 #include <cstring>
@@ -54,9 +55,12 @@ int Editor::convertSyntaxToColor(EditorHighlight hl)
   {
   case EditorHighlight::NUMBER:
     return 31;
-  default:
-    return 37;
+  case EditorHighlight::MATCH:
+    return 34;
   }
+
+  // default: NORMAL
+  return 37;
 }
 
 /*** row operations ***/
@@ -73,7 +77,9 @@ void Editor::convertRowCxToRx(EditorRow &erow)
   m_rx = rx;
 }
 
-void Editor::convertRowRxToCx(EditorRow &erow)
+// Note:
+// reconsider the argument and return values of this function
+int Editor::convertRowRxToCx(EditorRow &erow, int rx)
 {
   int cur_rx = 0, cx = 0;
   for (cx = 0; cx < static_cast<int>(erow.row.size()); ++cx)
@@ -83,11 +89,11 @@ void Editor::convertRowRxToCx(EditorRow &erow)
 
     cur_rx++;
 
-    if (cur_rx > m_rx)
-      m_cx = cx;
+    if (cur_rx > rx)
+      return cx;
   }
 
-  m_cx = cx;
+  return cx;
 }
 
 void Editor::updateRow(EditorRow &erow)
@@ -311,7 +317,7 @@ void Editor::findCallback(std::string &query, int key)
 
   int current = last_match;
 
-  for (const auto &row : m_rows)
+  for (auto &row : m_rows)
   {
     current += direction;
     if (current == -1)
@@ -320,13 +326,17 @@ void Editor::findCallback(std::string &query, int key)
       current = 0;
 
     const auto &render = row.rendered;
-    auto found = render.find(query);
-    if (found != std::string::npos)
+    auto found_pos = render.find(query);
+    if (found_pos != std::string::npos)
     {
       last_match = current;
       m_cy = current;
-      m_rx = found;
-      m_cx = 0;
+      m_cx = convertRowRxToCx(m_rows[current], static_cast<int>(found_pos));
+      m_rowoff = m_rows.size();
+
+      std::fill(row.hl.begin() + found_pos,
+                row.hl.begin() + found_pos + query.size(),
+                EditorHighlight::MATCH);
       return;
     }
   }

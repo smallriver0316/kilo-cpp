@@ -9,6 +9,7 @@ enum class EditorHighlight : unsigned char
 {
   NORMAL = 0,
   NUMBER,
+  MATCH
 };
 
 struct EditorRow
@@ -37,7 +38,7 @@ public:
 
   void convertRowCxToRx(EditorRow &erow);
 
-  void convertRowRxToCx(EditorRow &erow);
+  int convertRowRxToCx(EditorRow &erow, int rx);
 
   void updateRow(EditorRow &erow);
 
