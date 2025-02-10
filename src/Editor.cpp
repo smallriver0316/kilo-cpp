@@ -36,16 +36,36 @@ Editor::Editor()
 
 /*** syntax highlighting ***/
 
+bool isSeparator(int c)
+{
+  return std::isspace(c) || c == '\0' || std::strchr(",.()+-/*=~%<>[];", c) != NULL;
+}
+
 void Editor::updateSyntax(EditorRow &erow)
 {
   erow.hl.resize(erow.rendered.size(), EditorHighlight::NORMAL);
 
-  for (size_t i = 0; i < erow.rendered.size(); ++i)
+  bool prev_sep = true;
+
+  std::size_t i = 0;
+  // Note:
+  // I'm not sure why need to replace for-loop with while one.
+  while (i < erow.rendered.size())
   {
-    if (std::isdigit(erow.rendered[i]))
+    const auto c = erow.rendered[i];
+    EditorHighlight prev_hl = i > 0 ? erow.hl[i - 1] : EditorHighlight::NORMAL;
+
+    if ((std::isdigit(c) && (prev_sep || prev_hl == EditorHighlight::NUMBER)) ||
+        (c == '.' && prev_hl == EditorHighlight::NUMBER))
     {
       erow.hl[i] = EditorHighlight::NUMBER;
+      i++;
+      prev_sep = 0;
+      continue;
     }
+
+    prev_sep = isSeparator(c);
+    i++;
   }
 }
 
@@ -335,23 +355,23 @@ void Editor::findCallback(std::string &query, int key)
       current = 0;
 
     const auto &render = row.rendered;
-    auto match_begin = render.find(query);
-    if (match_begin != std::string::npos)
+    auto match_start_offset = render.find(query);
+    if (match_start_offset != std::string::npos)
     {
       last_match = current;
       m_cy = current;
-      m_cx = convertRowRxToCx(m_rows[current], static_cast<int>(match_begin));
+      m_cx = convertRowRxToCx(m_rows[current], static_cast<int>(match_start_offset));
       m_rowoff = m_rows.size();
 
       saved_hl_line = current;
       saved_hl.reserve(row.rendered.size());
       std::copy(row.hl.begin(), row.hl.end(), std::back_inserter(saved_hl));
 
-      const auto match_end = row.hl.begin() + match_begin + query.size() > row.hl.end()
-                                 ? row.hl.end() - row.hl.begin()
-                                 : match_begin + query.size();
-      std::fill(row.hl.begin() + match_begin,
-                row.hl.begin() + match_end,
+      const auto match_end_offset = row.hl.begin() + match_start_offset + query.size() > row.hl.end()
+                                        ? row.hl.end() - row.hl.begin()
+                                        : match_start_offset + query.size();
+      std::fill(row.hl.begin() + match_start_offset,
+                row.hl.begin() + match_end_offset,
                 EditorHighlight::MATCH);
       return;
     }
