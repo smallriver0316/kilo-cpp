@@ -594,7 +594,16 @@ void Editor::drawRows(std::string &s)
       {
         const auto &c = m_rows[filerow].rendered[m_coloff + i];
         const auto &hl = m_rows[filerow].hl[m_coloff + i];
-        if (hl == EditorHighlight::NORMAL)
+        if (std::iscntrl(c))
+        {
+          char sym = c <= 26 ? '@' + c : '?';
+          s += "\x1b[7m";
+          s += std::string(1, sym);
+          s += "\x1b[m";
+          if (current_color != -1)
+            s += "\x1b[" + std::to_string(current_color) + "m";
+        }
+        else if (hl == EditorHighlight::NORMAL)
         {
           if (current_color != -1)
           {
