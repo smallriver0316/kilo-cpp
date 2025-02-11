@@ -12,6 +12,7 @@
 enum class EditorHighlight : unsigned char
 {
   NORMAL = 0,
+  STRING,
   NUMBER,
   MATCH
 };

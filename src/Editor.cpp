@@ -21,16 +21,20 @@
 #define KILO_TAB_STOP 8
 #define KILO_QUIT_TIMES 3
 #define FILENAME_DISPLAY_LEN 20
-#define HL_HIGHLIGHT_NUMBERS (1 << 0)
 
 #define CTRL_KEY(k) ((k) & 0x1f)
+
+#define HL_HIGHLIGHT_NUMBERS (1 << 0)
+#define HL_HIGHLIGHT_STRINGS (1 << 1)
 
 /*** filetypes ***/
 
 constexpr std::array<std::string_view, 4> C_HL_EXTENSIONS = {".c", ".h", ".cpp", ".hpp"};
 
 EditorSyntax HLDB[] = {
-    {"c", C_HL_EXTENSIONS, HL_HIGHLIGHT_NUMBERS},
+    {"c",
+     C_HL_EXTENSIONS,
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
 };
 
 #define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
@@ -60,11 +64,42 @@ void Editor::updateSyntax(EditorRow &erow)
     return;
 
   bool prev_sep = true;
+  int in_string = 0;
 
   for (std::size_t i = 0; i < erow.rendered.size(); ++i)
   {
     const auto c = erow.rendered[i];
     EditorHighlight prev_hl = i > 0 ? erow.hl[i - 1] : EditorHighlight::NORMAL;
+
+    if (m_syntax->flags & HL_HIGHLIGHT_STRINGS)
+    {
+      if (in_string)
+      {
+        erow.hl[i] = EditorHighlight::STRING;
+
+        if (c == '\\' && i + 1 < erow.rendered.size())
+        {
+          erow.hl[i + 1] = EditorHighlight::STRING;
+          i += 2;
+          continue;
+        }
+
+        if (c == in_string)
+          in_string = 0;
+
+        prev_sep = 1;
+        continue;
+      }
+      else
+      {
+        if (c == '"' || c == '\'')
+        {
+          in_string = c;
+          erow.hl[i] = EditorHighlight::STRING;
+          continue;
+        }
+      }
+    }
 
     if (m_syntax->flags & HL_HIGHLIGHT_NUMBERS)
     {
@@ -85,6 +120,8 @@ int Editor::convertSyntaxToColor(EditorHighlight hl)
 {
   switch (hl)
   {
+  case EditorHighlight::STRING:
+    return 35;
   case EditorHighlight::NUMBER:
     return 31;
   case EditorHighlight::MATCH:
