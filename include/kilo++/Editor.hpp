@@ -13,6 +13,8 @@ enum class EditorHighlight : unsigned char
 {
   NORMAL = 0,
   COMMENT,
+  KEYWORD1,
+  KEYWORD2,
   STRING,
   NUMBER,
   MATCH
@@ -21,7 +23,8 @@ enum class EditorHighlight : unsigned char
 struct EditorSyntax
 {
   std::string filetype;
-  std::array<std::string_view, 4> filematch;
+  std::vector<std::string_view> filematch;
+  std::vector<std::string_view> keywords;
   std::string singleline_comment_start;
   int32_t flags;
 };

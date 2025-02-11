@@ -29,11 +29,15 @@
 
 /*** filetypes ***/
 
-constexpr std::array<std::string_view, 4> C_HL_EXTENSIONS = {".c", ".h", ".cpp", ".hpp"};
+const std::vector<std::string_view> C_HL_EXTENSIONS = {".c", ".h", ".cpp", ".hpp"};
+const std::vector<std::string_view> C_HL_KEYWORDS = {
+    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static",
+    "enum", "class", "case", "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "void|", "const|"};
 
 EditorSyntax HLDB[] = {
     {"c",
      C_HL_EXTENSIONS,
+     C_HL_KEYWORDS,
      "//",
      HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
 };
@@ -64,12 +68,14 @@ void Editor::updateSyntax(EditorRow &erow)
   if (!m_syntax)
     return;
 
-  const auto scs = m_syntax->singleline_comment_start;
+  const auto &keywords = m_syntax->keywords;
+  const auto &scs = m_syntax->singleline_comment_start;
 
   bool prev_sep = true;
   int in_string = 0;
 
-  for (std::size_t i = 0; i < erow.rendered.size(); ++i)
+  std::size_t i = 0;
+  while (i < erow.rendered.size())
   {
     const auto c = erow.rendered[i];
     EditorHighlight prev_hl = i > 0 ? erow.hl[i - 1] : EditorHighlight::NORMAL;
@@ -100,6 +106,7 @@ void Editor::updateSyntax(EditorRow &erow)
           in_string = 0;
 
         prev_sep = 1;
+        i++;
         continue;
       }
       else
@@ -108,6 +115,7 @@ void Editor::updateSyntax(EditorRow &erow)
         {
           in_string = c;
           erow.hl[i] = EditorHighlight::STRING;
+          i++;
           continue;
         }
       }
@@ -120,11 +128,41 @@ void Editor::updateSyntax(EditorRow &erow)
       {
         erow.hl[i] = EditorHighlight::NUMBER;
         prev_sep = 0;
+        i++;
+        continue;
+      }
+    }
+
+    if (prev_sep)
+    {
+      auto itr = keywords.begin();
+      for (; itr != keywords.end(); ++itr)
+      {
+        int klen = itr->size();
+        bool kw2 = (*itr)[klen - 1] == '|';
+        if (kw2)
+          klen--;
+
+        if (erow.rendered.substr(i, klen) == *itr &&
+            isSeparator(erow.rendered[i + klen]))
+        {
+          std::fill(
+              erow.hl.begin() + i,
+              erow.hl.begin() + i + klen,
+              kw2 ? EditorHighlight::KEYWORD2 : EditorHighlight::KEYWORD1);
+          i += klen;
+          break;
+        }
+      }
+      if (itr != keywords.end())
+      {
+        prev_sep = 0;
         continue;
       }
     }
 
     prev_sep = isSeparator(c);
+    i++;
   }
 }
 
@@ -134,6 +172,10 @@ int Editor::convertSyntaxToColor(EditorHighlight hl)
   {
   case EditorHighlight::COMMENT:
     return 36;
+  case EditorHighlight::KEYWORD1:
+    return 33;
+  case EditorHighlight::KEYWORD2:
+    return 32;
   case EditorHighlight::STRING:
     return 35;
   case EditorHighlight::NUMBER:
@@ -154,24 +196,21 @@ void Editor::selectSyntaxHighlight()
 
   const auto ext = m_filename.rfind('.');
 
-  for (unsigned int i = 0; i < HLDB_ENTRIES; ++i)
+  for (const auto &syntax : HLDB)
   {
-    const auto &s = HLDB[i];
-    unsigned int j = 0;
-    while (j < s.filematch.size())
+    for (const auto &fm : syntax.filematch)
     {
-      int is_ext = (s.filematch[j][0] == '.');
-      if ((is_ext && ext != std::string::npos && m_filename.substr(ext) == s.filematch[j]) ||
-          (!is_ext && m_filename.find(s.filematch[j]) != std::string::npos))
+      int is_ext = (fm[0] == '.');
+      if ((is_ext && ext != std::string::npos && m_filename.substr(ext) == fm) ||
+          (!is_ext && m_filename.find(fm) != std::string::npos))
       {
-        m_syntax = s;
+        m_syntax = syntax;
 
         for (auto &row : m_rows)
           updateSyntax(row);
 
         return;
       }
-      j++;
     }
   }
 }
