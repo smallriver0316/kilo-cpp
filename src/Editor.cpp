@@ -21,8 +21,19 @@
 #define KILO_TAB_STOP 8
 #define KILO_QUIT_TIMES 3
 #define FILENAME_DISPLAY_LEN 20
+#define HL_HIGHLIGHT_NUMBERS (1 << 0)
 
 #define CTRL_KEY(k) ((k) & 0x1f)
+
+/*** filetypes ***/
+
+constexpr std::array<std::string_view, 4> C_HL_EXTENSIONS = {".c", ".h", ".cpp", ".hpp"};
+
+EditorSyntax HLDB[] = {
+    {"c", C_HL_EXTENSIONS, HL_HIGHLIGHT_NUMBERS},
+};
+
+#define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
 
 Editor::Editor()
 {
@@ -45,27 +56,28 @@ void Editor::updateSyntax(EditorRow &erow)
 {
   erow.hl.resize(erow.rendered.size(), EditorHighlight::NORMAL);
 
+  if (!m_syntax)
+    return;
+
   bool prev_sep = true;
 
-  std::size_t i = 0;
-  // Note:
-  // I'm not sure why need to replace for-loop with while one.
-  while (i < erow.rendered.size())
+  for (std::size_t i = 0; i < erow.rendered.size(); ++i)
   {
     const auto c = erow.rendered[i];
     EditorHighlight prev_hl = i > 0 ? erow.hl[i - 1] : EditorHighlight::NORMAL;
 
-    if ((std::isdigit(c) && (prev_sep || prev_hl == EditorHighlight::NUMBER)) ||
-        (c == '.' && prev_hl == EditorHighlight::NUMBER))
+    if (m_syntax->flags & HL_HIGHLIGHT_NUMBERS)
     {
-      erow.hl[i] = EditorHighlight::NUMBER;
-      i++;
-      prev_sep = 0;
-      continue;
+      if ((std::isdigit(c) && (prev_sep || prev_hl == EditorHighlight::NUMBER)) ||
+          (c == '.' && prev_hl == EditorHighlight::NUMBER))
+      {
+        erow.hl[i] = EditorHighlight::NUMBER;
+        prev_sep = 0;
+        continue;
+      }
     }
 
     prev_sep = isSeparator(c);
-    i++;
   }
 }
 
@@ -81,6 +93,36 @@ int Editor::convertSyntaxToColor(EditorHighlight hl)
 
   // default: NORMAL
   return 37;
+}
+
+void Editor::selectSyntaxHighlight()
+{
+  m_syntax = std::nullopt;
+  if (m_filename.empty())
+    return;
+
+  const auto ext = m_filename.rfind('.');
+
+  for (unsigned int i = 0; i < HLDB_ENTRIES; ++i)
+  {
+    const auto &s = HLDB[i];
+    unsigned int j = 0;
+    while (j < s.filematch.size())
+    {
+      int is_ext = (s.filematch[j][0] == '.');
+      if ((is_ext && ext != std::string::npos && m_filename.substr(ext) == s.filematch[j]) ||
+          (!is_ext && m_filename.find(s.filematch[j]) != std::string::npos))
+      {
+        m_syntax = s;
+
+        for (auto &row : m_rows)
+          updateSyntax(row);
+
+        return;
+      }
+      j++;
+    }
+  }
 }
 
 /*** row operations ***/
@@ -260,6 +302,8 @@ void Editor::open(const char *filename)
 {
   m_filename = std::string(filename);
 
+  selectSyntaxHighlight();
+
   std::ifstream file(filename);
   if (!file.is_open())
     terminal_manager::die("fopen");
@@ -287,6 +331,7 @@ void Editor::save()
       setStatusMessage("Save aborted");
       return;
     }
+    selectSyntaxHighlight();
   }
 
   std::ofstream file(m_filename);
@@ -502,7 +547,11 @@ void Editor::drawStatusBar(std::string &s)
      << (m_dirty ? "(modified)" : "");
   int len = std::min(static_cast<int>(ss.str().size()), m_screencols);
 
-  rss << m_cy + 1 << "/" << m_rows.size();
+  rss << (m_syntax ? m_syntax->filetype : "no ft")
+      << " | "
+      << m_cy + 1
+      << "/"
+      << m_rows.size();
   int rlen = rss.str().size();
 
   s += ss.str().substr(0, len);

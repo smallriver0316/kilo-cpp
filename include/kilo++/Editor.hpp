@@ -1,15 +1,26 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <time.h>
 #include <vector>
+
+/*** data **/
 
 enum class EditorHighlight : unsigned char
 {
   NORMAL = 0,
   NUMBER,
   MATCH
+};
+
+struct EditorSyntax
+{
+  std::string filetype;
+  std::array<std::string_view, 4> filematch;
+  int32_t flags;
 };
 
 struct EditorRow
@@ -20,6 +31,8 @@ struct EditorRow
   std::string rendered;
   std::vector<EditorHighlight> hl;
 };
+
+/*** class definition */
 
 class Editor
 {
@@ -33,6 +46,8 @@ public:
   void updateSyntax(EditorRow &erow);
 
   int convertSyntaxToColor(EditorHighlight hl);
+
+  void selectSyntaxHighlight();
 
   /*** row operations ***/
 
@@ -108,4 +123,5 @@ private:
   std::string m_filename = "";
   std::string m_statusmsg = "\0";
   time_t m_statusmsg_time = 0;
+  std::optional<EditorSyntax> m_syntax = std::nullopt;
 };
