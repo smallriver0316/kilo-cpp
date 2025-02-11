@@ -12,6 +12,7 @@
 enum class EditorHighlight : unsigned char
 {
   NORMAL = 0,
+  COMMENT,
   STRING,
   NUMBER,
   MATCH
@@ -21,6 +22,7 @@ struct EditorSyntax
 {
   std::string filetype;
   std::array<std::string_view, 4> filematch;
+  std::string singleline_comment_start;
   int32_t flags;
 };
 

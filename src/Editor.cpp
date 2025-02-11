@@ -34,6 +34,7 @@ constexpr std::array<std::string_view, 4> C_HL_EXTENSIONS = {".c", ".h", ".cpp",
 EditorSyntax HLDB[] = {
     {"c",
      C_HL_EXTENSIONS,
+     "//",
      HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
 };
 
@@ -63,6 +64,8 @@ void Editor::updateSyntax(EditorRow &erow)
   if (!m_syntax)
     return;
 
+  const auto scs = m_syntax->singleline_comment_start;
+
   bool prev_sep = true;
   int in_string = 0;
 
@@ -70,6 +73,15 @@ void Editor::updateSyntax(EditorRow &erow)
   {
     const auto c = erow.rendered[i];
     EditorHighlight prev_hl = i > 0 ? erow.hl[i - 1] : EditorHighlight::NORMAL;
+
+    if (!scs.empty() && !in_string)
+    {
+      if (erow.rendered.substr(i, scs.size()) == scs)
+      {
+        std::fill(erow.hl.begin() + i, erow.hl.end(), EditorHighlight::COMMENT);
+        break;
+      }
+    }
 
     if (m_syntax->flags & HL_HIGHLIGHT_STRINGS)
     {
@@ -120,6 +132,8 @@ int Editor::convertSyntaxToColor(EditorHighlight hl)
 {
   switch (hl)
   {
+  case EditorHighlight::COMMENT:
+    return 36;
   case EditorHighlight::STRING:
     return 35;
   case EditorHighlight::NUMBER:
