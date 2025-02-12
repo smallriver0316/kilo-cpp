@@ -13,6 +13,7 @@ enum class EditorHighlight : unsigned char
 {
   NORMAL = 0,
   COMMENT,
+  ML_COMMENT,
   KEYWORD1,
   KEYWORD2,
   STRING,

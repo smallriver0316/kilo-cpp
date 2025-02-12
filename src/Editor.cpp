@@ -34,11 +34,11 @@ const std::vector<std::string_view> C_HL_KEYWORDS = {
     "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static",
     "enum", "class", "case", "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "void|", "const|"};
 
-EditorSyntax HLDB[] = {
+const EditorSyntax HLDB[] = {
     {"c",
      C_HL_EXTENSIONS,
      C_HL_KEYWORDS,
-     "//",
+     "//", "/*", "*/",
      HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
 };
 
@@ -70,9 +70,12 @@ void Editor::updateSyntax(EditorRow &erow)
 
   const auto &keywords = m_syntax->keywords;
   const auto &scs = m_syntax->singleline_comment_start;
+  const auto &mcs = m_syntax->multiline_comment_start;
+  const auto &mce = m_syntax->multiline_comment_end;
 
   bool prev_sep = true;
   int in_string = 0;
+  int in_comment = 0;
 
   std::size_t i = 0;
   while (i < erow.rendered.size())
@@ -80,12 +83,40 @@ void Editor::updateSyntax(EditorRow &erow)
     const auto c = erow.rendered[i];
     EditorHighlight prev_hl = i > 0 ? erow.hl[i - 1] : EditorHighlight::NORMAL;
 
-    if (!scs.empty() && !in_string)
+    if (!scs.empty() && !in_string && !in_comment)
     {
-      if (erow.rendered.substr(i, scs.size()) == scs)
+      if (!erow.rendered.compare(i, scs.size(), scs))
       {
         std::fill(erow.hl.begin() + i, erow.hl.end(), EditorHighlight::COMMENT);
         break;
+      }
+    }
+
+    if (!mcs.empty() && !mce.empty() && !in_string)
+    {
+      if (in_comment)
+      {
+        erow.hl[i] = EditorHighlight::ML_COMMENT;
+        if (!erow.rendered.compare(i, mce.size(), mce))
+        {
+          std::fill(erow.hl.begin() + i, erow.hl.begin() + i + mce.size(), EditorHighlight::ML_COMMENT);
+          i += mce.size();
+          in_comment = 0;
+          prev_sep = 1;
+          continue;
+        }
+        else
+        {
+          i++;
+          continue;
+        }
+      }
+      else if (!erow.rendered.compare(i, mcs.size(), mcs))
+      {
+        std::fill(erow.hl.begin() + i, erow.hl.begin() + i + mcs.size(), EditorHighlight::ML_COMMENT);
+        i += mcs.size();
+        in_comment = 1;
+        continue;
       }
     }
 
@@ -143,7 +174,7 @@ void Editor::updateSyntax(EditorRow &erow)
         if (kw2)
           klen--;
 
-        if (erow.rendered.substr(i, klen) == *itr &&
+        if (!erow.rendered.compare(i, klen, *itr) &&
             isSeparator(erow.rendered[i + klen]))
         {
           std::fill(
@@ -171,6 +202,7 @@ int Editor::convertSyntaxToColor(EditorHighlight hl)
   switch (hl)
   {
   case EditorHighlight::COMMENT:
+  case EditorHighlight::ML_COMMENT:
     return 36;
   case EditorHighlight::KEYWORD1:
     return 33;
@@ -201,7 +233,7 @@ void Editor::selectSyntaxHighlight()
     for (const auto &fm : syntax.filematch)
     {
       int is_ext = (fm[0] == '.');
-      if ((is_ext && ext != std::string::npos && m_filename.substr(ext) == fm) ||
+      if ((is_ext && ext != std::string::npos && !m_filename.compare(ext, fm.size(), fm)) ||
           (!is_ext && m_filename.find(fm) != std::string::npos))
       {
         m_syntax = syntax;
