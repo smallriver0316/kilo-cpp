@@ -1,7 +1,7 @@
 #pragma once
 
 #include <functional>
-#include <optional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <time.h>
@@ -130,5 +130,5 @@ private:
   std::string m_filename = "";
   std::string m_statusmsg = "\0";
   time_t m_statusmsg_time = 0;
-  std::optional<EditorSyntax> m_syntax = std::nullopt;
+  std::shared_ptr<EditorSyntax> m_syntax = nullptr;
 };

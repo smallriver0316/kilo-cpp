@@ -42,8 +42,6 @@ const EditorSyntax HLDB[] = {
      HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
 };
 
-#define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
-
 Editor::Editor()
 {
   terminal_manager::enableRawMode();
@@ -222,7 +220,7 @@ int Editor::convertSyntaxToColor(EditorHighlight hl)
 
 void Editor::selectSyntaxHighlight()
 {
-  m_syntax = std::nullopt;
+  m_syntax = nullptr;
   if (m_filename.empty())
     return;
 
@@ -236,7 +234,7 @@ void Editor::selectSyntaxHighlight()
       if ((is_ext && ext != std::string::npos && !m_filename.compare(ext, fm.size(), fm)) ||
           (!is_ext && m_filename.find(fm) != std::string::npos))
       {
-        m_syntax = syntax;
+        m_syntax = std::make_shared<EditorSyntax>(syntax);
 
         for (auto &row : m_rows)
           updateSyntax(row);
