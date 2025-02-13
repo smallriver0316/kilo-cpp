@@ -73,7 +73,7 @@ void Editor::updateSyntax(EditorRow &erow)
 
   bool prev_sep = true;
   int in_string = 0;
-  int in_comment = 0;
+  bool in_comment = (erow.idx > 0 && m_rows[erow.idx - 1].hl_open_comment);
 
   std::size_t i = 0;
   while (i < erow.rendered.size())
@@ -99,7 +99,7 @@ void Editor::updateSyntax(EditorRow &erow)
         {
           std::fill(erow.hl.begin() + i, erow.hl.begin() + i + mce.size(), EditorHighlight::ML_COMMENT);
           i += mce.size();
-          in_comment = 0;
+          in_comment = false;
           prev_sep = 1;
           continue;
         }
@@ -113,7 +113,7 @@ void Editor::updateSyntax(EditorRow &erow)
       {
         std::fill(erow.hl.begin() + i, erow.hl.begin() + i + mcs.size(), EditorHighlight::ML_COMMENT);
         i += mcs.size();
-        in_comment = 1;
+        in_comment = true;
         continue;
       }
     }
@@ -193,6 +193,11 @@ void Editor::updateSyntax(EditorRow &erow)
     prev_sep = isSeparator(c);
     i++;
   }
+
+  bool is_changed = erow.hl_open_comment != in_comment;
+  erow.hl_open_comment = in_comment;
+  if (is_changed && erow.idx + 1 < static_cast<int>(m_rows.size()))
+    updateSyntax(m_rows[erow.idx + 1]);
 }
 
 int Editor::convertSyntaxToColor(EditorHighlight hl)
@@ -305,8 +310,12 @@ bool Editor::insertRow(int yindex, const std::string &s)
   if (yindex < 0 || yindex > static_cast<int>(m_rows.size()))
     return false;
 
-  m_rows.insert(m_rows.begin() + yindex, EditorRow());
+  m_rows.insert(m_rows.begin() + yindex, EditorRow(yindex));
   m_rows[yindex].row = s;
+  m_rows[yindex].idx = yindex;
+  std::for_each(m_rows.begin() + yindex + 1, m_rows.end(), [](auto &erow)
+                { erow.idx++; });
+
   updateRow(m_rows[yindex]);
   m_dirty++;
 
@@ -319,6 +328,9 @@ void Editor::deleteRow(int yindex)
     return;
 
   m_rows.erase(m_rows.begin() + yindex);
+  std::for_each(m_rows.begin() + yindex, m_rows.end(), [](auto &erow)
+                { erow.idx--; });
+
   m_dirty++;
 }
 

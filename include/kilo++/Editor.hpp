@@ -27,16 +27,23 @@ struct EditorSyntax
   std::vector<std::string_view> filematch;
   std::vector<std::string_view> keywords;
   std::string singleline_comment_start;
+  std::string multiline_comment_start;
+  std::string multiline_comment_end;
   int32_t flags;
 };
 
 struct EditorRow
 {
-  EditorRow() : row({}), rendered({}), hl({}) {};
+  EditorRow(int index) : idx(index), row({}), rendered({}), hl({})
+  {
+    hl_open_comment = false;
+  };
 
+  int idx;
   std::string row;
   std::string rendered;
   std::vector<EditorHighlight> hl;
+  bool hl_open_comment;
 };
 
 /*** class definition */
