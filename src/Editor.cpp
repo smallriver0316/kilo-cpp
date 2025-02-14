@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cstdarg>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -264,8 +265,6 @@ void Editor::convertRowCxToRx(EditorRow &erow)
   m_rx = rx;
 }
 
-// Note:
-// reconsider the argument and return values of this function
 int Editor::convertRowRxToCx(EditorRow &erow, int rx)
 {
   int cur_rx = 0, cx = 0;
@@ -286,9 +285,9 @@ int Editor::convertRowRxToCx(EditorRow &erow, int rx)
 void Editor::updateRow(EditorRow &erow)
 {
   std::string render = "";
-  for (int i = 0; i < static_cast<int>(erow.row.size()); ++i)
+  for (const auto &c : erow.row)
   {
-    if (erow.row[i] == '\t')
+    if (c == '\t')
     {
       render += " ";
       while (render.size() % KILO_TAB_STOP != 0)
@@ -296,7 +295,7 @@ void Editor::updateRow(EditorRow &erow)
     }
     else
     {
-      render += erow.row[i];
+      render += c;
     }
   }
 
@@ -432,6 +431,13 @@ std::string Editor::convertRowsToString()
 
 void Editor::open(const char *filename)
 {
+  if (!std::filesystem::exists(filename))
+  {
+    std::ofstream file(filename);
+    if (!file)
+      terminal_manager::die("create a new file");
+  }
+
   m_filename = std::string(filename);
 
   selectSyntaxHighlight();
@@ -771,7 +777,8 @@ void Editor::setStatusMessage(const char *fmt, ...)
 
 /*** input ***/
 
-std::string Editor::fromPrompt(std::string prompt, std::function<void(std::string &, int)> callback)
+std::string Editor::fromPrompt(
+    std::string prompt, std::function<void(std::string &, int)> callback)
 {
   std::string s = "\0";
   while (1)

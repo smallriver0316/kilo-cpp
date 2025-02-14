@@ -119,7 +119,9 @@ public:
 
   /*** input ***/
 
-  std::string fromPrompt(std::string prompt, std::function<void(std::string &, int)> callback = nullptr);
+  std::string fromPrompt(
+      std::string prompt,
+      std::function<void(std::string &, int)> callback = nullptr);
 
   void moveCursor(int key);
 
