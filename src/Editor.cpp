@@ -830,7 +830,7 @@ void Editor::moveCursor(int key)
       m_cy--;
     break;
   case static_cast<int>(EditorKey::ARROW_DOWN):
-    if (m_cy < static_cast<int>(m_rows.size()))
+    if (m_cy < static_cast<int>(m_rows.size()) - 1)
       m_cy++;
     break;
   case static_cast<int>(EditorKey::ARROW_LEFT):
@@ -849,7 +849,7 @@ void Editor::moveCursor(int key)
     {
       m_cx++;
     }
-    else if (m_cy < static_cast<int>(m_rows.size()))
+    else if (m_cy < static_cast<int>(m_rows.size()) - 1)
     {
       m_cy++;
       m_cx = 0;
