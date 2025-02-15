@@ -60,6 +60,45 @@ bool isSeparator(int c)
   return std::isspace(c) || c == '\0' || std::strchr(",.()+-/*=~%<>[];", c) != NULL;
 }
 
+bool isSLCommentStarted(EditorRow &erow, const std::string &sl_comment_start, std::size_t pos)
+{
+  if (!erow.rendered.compare(pos, sl_comment_start.size(), sl_comment_start))
+  {
+    std::fill(
+        erow.hl.begin() + pos,
+        erow.hl.end(),
+        EditorHighlight::COMMENT);
+    return true;
+  }
+  return false;
+}
+
+bool isMLCommentStarted(EditorRow &erow, const std::string &ml_comment_start, std::size_t pos)
+{
+  if (!erow.rendered.compare(pos, ml_comment_start.size(), ml_comment_start))
+  {
+    std::fill(
+        erow.hl.begin() + pos,
+        erow.hl.begin() + pos + ml_comment_start.size(),
+        EditorHighlight::ML_COMMENT);
+    return true;
+  }
+  return false;
+}
+
+bool isMLCommentEnded(EditorRow &erow, const std::string &ml_comment_end, std::size_t pos)
+{
+  if (!erow.rendered.compare(pos, ml_comment_end.size(), ml_comment_end))
+  {
+    std::fill(
+        erow.hl.begin() + pos,
+        erow.hl.begin() + pos + ml_comment_end.size(),
+        EditorHighlight::ML_COMMENT);
+    return true;
+  }
+  return false;
+}
+
 void Editor::updateSyntax(EditorRow &erow)
 {
   erow.hl.resize(erow.rendered.size(), EditorHighlight::NORMAL);
@@ -84,11 +123,8 @@ void Editor::updateSyntax(EditorRow &erow)
 
     if (!scs.empty() && !in_string && !in_comment)
     {
-      if (!erow.rendered.compare(i, scs.size(), scs))
-      {
-        std::fill(erow.hl.begin() + i, erow.hl.end(), EditorHighlight::COMMENT);
+      if (isSLCommentStarted(erow, scs, i))
         break;
-      }
     }
 
     if (!mcs.empty() && !mce.empty() && !in_string)
@@ -96,23 +132,20 @@ void Editor::updateSyntax(EditorRow &erow)
       if (in_comment)
       {
         erow.hl[i] = EditorHighlight::ML_COMMENT;
-        if (!erow.rendered.compare(i, mce.size(), mce))
+        if (isMLCommentEnded(erow, mce, i))
         {
-          std::fill(erow.hl.begin() + i, erow.hl.begin() + i + mce.size(), EditorHighlight::ML_COMMENT);
           i += mce.size();
           in_comment = false;
-          prev_sep = 1;
-          continue;
+          prev_sep = true;
         }
         else
         {
           i++;
-          continue;
         }
+        continue;
       }
-      else if (!erow.rendered.compare(i, mcs.size(), mcs))
+      else if (isMLCommentStarted(erow, mcs, i))
       {
-        std::fill(erow.hl.begin() + i, erow.hl.begin() + i + mcs.size(), EditorHighlight::ML_COMMENT);
         i += mcs.size();
         in_comment = true;
         continue;
@@ -135,7 +168,7 @@ void Editor::updateSyntax(EditorRow &erow)
         if (c == in_string)
           in_string = 0;
 
-        prev_sep = 1;
+        prev_sep = true;
         i++;
         continue;
       }
@@ -157,7 +190,7 @@ void Editor::updateSyntax(EditorRow &erow)
           (c == '.' && prev_hl == EditorHighlight::NUMBER))
       {
         erow.hl[i] = EditorHighlight::NUMBER;
-        prev_sep = 0;
+        prev_sep = false;
         i++;
         continue;
       }
@@ -186,7 +219,7 @@ void Editor::updateSyntax(EditorRow &erow)
       }
       if (itr != keywords.end())
       {
-        prev_sep = 0;
+        prev_sep = false;
         continue;
       }
     }
