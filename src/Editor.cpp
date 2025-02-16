@@ -32,8 +32,8 @@
 
 const std::vector<std::string_view> C_HL_EXTENSIONS = {".c", ".h", ".cpp", ".hpp"};
 const std::vector<std::string_view> C_HL_KEYWORDS = {
-    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static",
-    "enum", "class", "case", "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "void|", "const|"};
+    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static", "const",
+    "enum", "class", "case", "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "auto|", "void|"};
 
 const EditorSyntax HLDB[] = {
     {"c",
@@ -201,18 +201,19 @@ void Editor::updateSyntax(EditorRow &erow)
       auto itr = keywords.begin();
       for (; itr != keywords.end(); ++itr)
       {
+        auto kw = *itr;
         int klen = itr->size();
-        bool kw2 = (*itr)[klen - 1] == '|';
-        if (kw2)
-          klen--;
+        bool is_kw2 = kw[klen - 1] == '|';
+        if (is_kw2)
+          kw = kw.substr(0, --klen);
 
-        if (!erow.rendered.compare(i, klen, *itr) &&
+        if (!erow.rendered.compare(i, klen, kw) &&
             isSeparator(erow.rendered[i + klen]))
         {
           std::fill(
               erow.hl.begin() + i,
               erow.hl.begin() + i + klen,
-              kw2 ? EditorHighlight::KEYWORD2 : EditorHighlight::KEYWORD1);
+              is_kw2 ? EditorHighlight::KEYWORD2 : EditorHighlight::KEYWORD1);
           i += klen;
           break;
         }
