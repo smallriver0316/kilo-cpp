@@ -60,9 +60,9 @@ bool isSeparator(int c)
   return std::isspace(c) || c == '\0' || std::strchr(",.()+-/*=~%<>[];", c) != NULL;
 }
 
-bool isSLCommentStarted(EditorRow &erow, const std::string &sl_comment_start, std::size_t pos)
+bool isSLCommentStarted(EditorRow &erow, const std::string &comment_start_kw, std::size_t pos)
 {
-  if (!erow.rendered.compare(pos, sl_comment_start.size(), sl_comment_start))
+  if (!erow.rendered.compare(pos, comment_start_kw.size(), comment_start_kw))
   {
     std::fill(
         erow.hl.begin() + pos,
@@ -73,26 +73,26 @@ bool isSLCommentStarted(EditorRow &erow, const std::string &sl_comment_start, st
   return false;
 }
 
-bool isMLCommentStarted(EditorRow &erow, const std::string &ml_comment_start, std::size_t pos)
+bool isMLCommentStarted(EditorRow &erow, const std::string &comment_start_kw, std::size_t pos)
 {
-  if (!erow.rendered.compare(pos, ml_comment_start.size(), ml_comment_start))
+  if (!erow.rendered.compare(pos, comment_start_kw.size(), comment_start_kw))
   {
     std::fill(
         erow.hl.begin() + pos,
-        erow.hl.begin() + pos + ml_comment_start.size(),
+        erow.hl.begin() + pos + comment_start_kw.size(),
         EditorHighlight::ML_COMMENT);
     return true;
   }
   return false;
 }
 
-bool isMLCommentEnded(EditorRow &erow, const std::string &ml_comment_end, std::size_t pos)
+bool isMLCommentEnded(EditorRow &erow, const std::string &comment_end_kw, std::size_t pos)
 {
-  if (!erow.rendered.compare(pos, ml_comment_end.size(), ml_comment_end))
+  if (!erow.rendered.compare(pos, comment_end_kw.size(), comment_end_kw))
   {
     std::fill(
         erow.hl.begin() + pos,
-        erow.hl.begin() + pos + ml_comment_end.size(),
+        erow.hl.begin() + pos + comment_end_kw.size(),
         EditorHighlight::ML_COMMENT);
     return true;
   }
@@ -198,11 +198,11 @@ void Editor::updateSyntax(EditorRow &erow)
 
     if (prev_sep)
     {
-      auto itr = keywords.begin();
-      for (; itr != keywords.end(); ++itr)
+      auto kwitr = keywords.begin();
+      for (; kwitr != keywords.end(); ++kwitr)
       {
-        auto kw = *itr;
-        int klen = itr->size();
+        auto kw = *kwitr;
+        int klen = kw.size();
         bool is_kw2 = kw[klen - 1] == '|';
         if (is_kw2)
           kw = kw.substr(0, --klen);
@@ -218,7 +218,7 @@ void Editor::updateSyntax(EditorRow &erow)
           break;
         }
       }
-      if (itr != keywords.end())
+      if (kwitr != keywords.end())
       {
         prev_sep = false;
         continue;
