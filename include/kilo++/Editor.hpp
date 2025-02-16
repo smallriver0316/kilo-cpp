@@ -1,24 +1,52 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <time.h>
 #include <vector>
+
+/*** data **/
 
 enum class EditorHighlight : unsigned char
 {
   NORMAL = 0,
+  COMMENT,
+  ML_COMMENT,
+  KEYWORD1,
+  KEYWORD2,
+  STRING,
   NUMBER,
+  MATCH
+};
+
+struct EditorSyntax
+{
+  std::string filetype;
+  std::vector<std::string_view> filematch;
+  std::vector<std::string_view> keywords;
+  std::string singleline_comment_start;
+  std::string multiline_comment_start;
+  std::string multiline_comment_end;
+  int32_t flags;
 };
 
 struct EditorRow
 {
-  EditorRow() : row({}), rendered({}), hl({}) {};
+  EditorRow(int index) : idx(index), row({}), rendered({}), hl({})
+  {
+    hl_open_comment = false;
+  };
 
+  int idx;
   std::string row;
   std::string rendered;
-  std::vector<unsigned char> hl;
+  std::vector<EditorHighlight> hl;
+  bool hl_open_comment;
 };
+
+/*** class definition */
 
 class Editor
 {
@@ -27,11 +55,19 @@ public:
 
   void run(int argc, char *argv[]);
 
+  /*** syntax highlighting ***/
+
+  void updateSyntax(EditorRow &erow);
+
+  int convertSyntaxToColor(EditorHighlight hl);
+
+  void selectSyntaxHighlight();
+
   /*** row operations ***/
 
   void convertRowCxToRx(EditorRow &erow);
 
-  void convertRowRxToCx(EditorRow &erow);
+  int convertRowRxToCx(EditorRow &erow, int rx);
 
   void updateRow(EditorRow &erow);
 
@@ -83,7 +119,9 @@ public:
 
   /*** input ***/
 
-  std::string fromPrompt(std::string prompt, std::function<void(std::string &, int)> callback = nullptr);
+  std::string fromPrompt(
+      std::string prompt,
+      std::function<void(std::string &, int)> callback = nullptr);
 
   void moveCursor(int key);
 
@@ -101,4 +139,5 @@ private:
   std::string m_filename = "";
   std::string m_statusmsg = "\0";
   time_t m_statusmsg_time = 0;
+  std::shared_ptr<EditorSyntax> m_syntax = nullptr;
 };

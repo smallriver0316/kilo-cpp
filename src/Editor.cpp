@@ -6,9 +6,11 @@
 #include "kilo++/Editor.hpp"
 #include "kilo++/EditorUtils.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdarg>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -23,6 +25,26 @@
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
+#define HL_HIGHLIGHT_NUMBERS (1 << 0)
+#define HL_HIGHLIGHT_STRINGS (1 << 1)
+
+/*** filetypes ***/
+
+const std::vector<std::string_view> C_HL_EXTENSIONS = {".c", ".h", ".cpp", ".hpp"};
+const std::vector<std::string_view> C_HL_KEYWORDS = {
+    "switch", "if", "while", "for", "break", "continue", "return", "else", "struct", "union", "typedef", "static", "const",
+    "enum", "class", "case", "int|", "long|", "double|", "float|", "char|", "unsigned|", "signed|", "auto|", "void|"};
+
+const EditorSyntax HLDB[] = {
+    {"c",
+     C_HL_EXTENSIONS,
+     C_HL_KEYWORDS,
+     "//", "/*", "*/",
+     HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
+};
+
+/*** constructor ***/
+
 Editor::Editor()
 {
   terminal_manager::enableRawMode();
@@ -31,6 +53,238 @@ Editor::Editor()
     terminal_manager::die("getWindowSize");
 
   m_screenrows -= 2;
+}
+
+/*** syntax highlighting ***/
+
+bool isSeparator(int c)
+{
+  return std::isspace(c) || c == '\0' || std::strchr(",.()+-/*=~%<>[];", c) != NULL;
+}
+
+bool isSLCommentStarted(EditorRow &erow, const std::string &comment_start_kw, std::size_t pos)
+{
+  if (!erow.rendered.compare(pos, comment_start_kw.size(), comment_start_kw))
+  {
+    std::fill(
+        erow.hl.begin() + pos,
+        erow.hl.end(),
+        EditorHighlight::COMMENT);
+    return true;
+  }
+  return false;
+}
+
+bool isMLCommentStarted(EditorRow &erow, const std::string &comment_start_kw, std::size_t pos)
+{
+  if (!erow.rendered.compare(pos, comment_start_kw.size(), comment_start_kw))
+  {
+    std::fill(
+        erow.hl.begin() + pos,
+        erow.hl.begin() + pos + comment_start_kw.size(),
+        EditorHighlight::ML_COMMENT);
+    return true;
+  }
+  return false;
+}
+
+bool isMLCommentEnded(EditorRow &erow, const std::string &comment_end_kw, std::size_t pos)
+{
+  if (!erow.rendered.compare(pos, comment_end_kw.size(), comment_end_kw))
+  {
+    std::fill(
+        erow.hl.begin() + pos,
+        erow.hl.begin() + pos + comment_end_kw.size(),
+        EditorHighlight::ML_COMMENT);
+    return true;
+  }
+  return false;
+}
+
+void Editor::updateSyntax(EditorRow &erow)
+{
+  erow.hl.resize(erow.rendered.size(), EditorHighlight::NORMAL);
+
+  if (!m_syntax)
+    return;
+
+  const auto &keywords = m_syntax->keywords;
+  const auto &scs = m_syntax->singleline_comment_start;
+  const auto &mcs = m_syntax->multiline_comment_start;
+  const auto &mce = m_syntax->multiline_comment_end;
+
+  bool prev_sep = true;
+  int in_string = 0;
+  bool in_comment = (erow.idx > 0 && m_rows[erow.idx - 1].hl_open_comment);
+
+  std::size_t i = 0;
+  while (i < erow.rendered.size())
+  {
+    const auto c = erow.rendered[i];
+    EditorHighlight prev_hl = i > 0 ? erow.hl[i - 1] : EditorHighlight::NORMAL;
+
+    if (!scs.empty() && !in_string && !in_comment)
+    {
+      if (isSLCommentStarted(erow, scs, i))
+        break;
+    }
+
+    if (!mcs.empty() && !mce.empty() && !in_string)
+    {
+      if (in_comment)
+      {
+        erow.hl[i] = EditorHighlight::ML_COMMENT;
+        if (isMLCommentEnded(erow, mce, i))
+        {
+          i += mce.size();
+          in_comment = false;
+          prev_sep = true;
+        }
+        else
+        {
+          i++;
+        }
+        continue;
+      }
+      else if (isMLCommentStarted(erow, mcs, i))
+      {
+        i += mcs.size();
+        in_comment = true;
+        continue;
+      }
+    }
+
+    if (m_syntax->flags & HL_HIGHLIGHT_STRINGS)
+    {
+      if (in_string)
+      {
+        erow.hl[i] = EditorHighlight::STRING;
+
+        if (c == '\\' && i + 1 < erow.rendered.size())
+        {
+          erow.hl[i + 1] = EditorHighlight::STRING;
+          i += 2;
+          continue;
+        }
+
+        if (c == in_string)
+          in_string = 0;
+
+        prev_sep = true;
+        i++;
+        continue;
+      }
+      else
+      {
+        if (c == '"' || c == '\'')
+        {
+          in_string = c;
+          erow.hl[i] = EditorHighlight::STRING;
+          i++;
+          continue;
+        }
+      }
+    }
+
+    if (m_syntax->flags & HL_HIGHLIGHT_NUMBERS)
+    {
+      if ((std::isdigit(c) && (prev_sep || prev_hl == EditorHighlight::NUMBER)) ||
+          (c == '.' && prev_hl == EditorHighlight::NUMBER))
+      {
+        erow.hl[i] = EditorHighlight::NUMBER;
+        prev_sep = false;
+        i++;
+        continue;
+      }
+    }
+
+    if (prev_sep)
+    {
+      auto kwitr = keywords.begin();
+      for (; kwitr != keywords.end(); ++kwitr)
+      {
+        auto kw = *kwitr;
+        int klen = kw.size();
+        bool is_kw2 = kw[klen - 1] == '|';
+        if (is_kw2)
+          kw = kw.substr(0, --klen);
+
+        if (!erow.rendered.compare(i, klen, kw) &&
+            isSeparator(erow.rendered[i + klen]))
+        {
+          std::fill(
+              erow.hl.begin() + i,
+              erow.hl.begin() + i + klen,
+              is_kw2 ? EditorHighlight::KEYWORD2 : EditorHighlight::KEYWORD1);
+          i += klen;
+          break;
+        }
+      }
+      if (kwitr != keywords.end())
+      {
+        prev_sep = false;
+        continue;
+      }
+    }
+
+    prev_sep = isSeparator(c);
+    i++;
+  }
+
+  bool is_changed = erow.hl_open_comment != in_comment;
+  erow.hl_open_comment = in_comment;
+  if (is_changed && erow.idx + 1 < static_cast<int>(m_rows.size()))
+    updateSyntax(m_rows[erow.idx + 1]);
+}
+
+int Editor::convertSyntaxToColor(EditorHighlight hl)
+{
+  switch (hl)
+  {
+  case EditorHighlight::COMMENT:
+  case EditorHighlight::ML_COMMENT:
+    return 36;
+  case EditorHighlight::KEYWORD1:
+    return 33;
+  case EditorHighlight::KEYWORD2:
+    return 32;
+  case EditorHighlight::STRING:
+    return 35;
+  case EditorHighlight::NUMBER:
+    return 31;
+  case EditorHighlight::MATCH:
+    return 34;
+  }
+
+  // default: NORMAL
+  return 37;
+}
+
+void Editor::selectSyntaxHighlight()
+{
+  m_syntax = nullptr;
+  if (m_filename.empty())
+    return;
+
+  const auto ext = m_filename.rfind('.');
+
+  for (const auto &syntax : HLDB)
+  {
+    for (const auto &fm : syntax.filematch)
+    {
+      int is_ext = (fm[0] == '.');
+      if ((is_ext && ext != std::string::npos && !m_filename.compare(ext, fm.size(), fm)) ||
+          (!is_ext && m_filename.find(fm) != std::string::npos))
+      {
+        m_syntax = std::make_shared<EditorSyntax>(syntax);
+
+        for (auto &row : m_rows)
+          updateSyntax(row);
+
+        return;
+      }
+    }
+  }
 }
 
 /*** row operations ***/
@@ -47,7 +301,7 @@ void Editor::convertRowCxToRx(EditorRow &erow)
   m_rx = rx;
 }
 
-void Editor::convertRowRxToCx(EditorRow &erow)
+int Editor::convertRowRxToCx(EditorRow &erow, int rx)
 {
   int cur_rx = 0, cx = 0;
   for (cx = 0; cx < static_cast<int>(erow.row.size()); ++cx)
@@ -57,19 +311,19 @@ void Editor::convertRowRxToCx(EditorRow &erow)
 
     cur_rx++;
 
-    if (cur_rx > m_rx)
-      m_cx = cx;
+    if (cur_rx > rx)
+      return cx;
   }
 
-  m_cx = cx;
+  return cx;
 }
 
 void Editor::updateRow(EditorRow &erow)
 {
   std::string render = "";
-  for (int i = 0; i < static_cast<int>(erow.row.size()); ++i)
+  for (const auto &c : erow.row)
   {
-    if (erow.row[i] == '\t')
+    if (c == '\t')
     {
       render += " ";
       while (render.size() % KILO_TAB_STOP != 0)
@@ -77,11 +331,13 @@ void Editor::updateRow(EditorRow &erow)
     }
     else
     {
-      render += erow.row[i];
+      render += c;
     }
   }
 
+  render += "\0";
   erow.rendered = render;
+  updateSyntax(erow);
 }
 
 bool Editor::insertRow(int yindex, const std::string &s)
@@ -89,8 +345,12 @@ bool Editor::insertRow(int yindex, const std::string &s)
   if (yindex < 0 || yindex > static_cast<int>(m_rows.size()))
     return false;
 
-  m_rows.insert(m_rows.begin() + yindex, EditorRow());
+  m_rows.insert(m_rows.begin() + yindex, EditorRow(yindex));
   m_rows[yindex].row = s;
+  m_rows[yindex].idx = yindex;
+  std::for_each(m_rows.begin() + yindex + 1, m_rows.end(), [](auto &erow)
+                { erow.idx++; });
+
   updateRow(m_rows[yindex]);
   m_dirty++;
 
@@ -103,6 +363,9 @@ void Editor::deleteRow(int yindex)
     return;
 
   m_rows.erase(m_rows.begin() + yindex);
+  std::for_each(m_rows.begin() + yindex, m_rows.end(), [](auto &erow)
+                { erow.idx--; });
+
   m_dirty++;
 }
 
@@ -204,7 +467,16 @@ std::string Editor::convertRowsToString()
 
 void Editor::open(const char *filename)
 {
+  if (!std::filesystem::exists(filename))
+  {
+    std::ofstream file(filename);
+    if (!file)
+      terminal_manager::die("create a new file");
+  }
+
   m_filename = std::string(filename);
+
+  selectSyntaxHighlight();
 
   std::ifstream file(filename);
   if (!file.is_open())
@@ -233,6 +505,7 @@ void Editor::save()
       setStatusMessage("Save aborted");
       return;
     }
+    selectSyntaxHighlight();
   }
 
   std::ofstream file(m_filename);
@@ -255,6 +528,15 @@ void Editor::findCallback(std::string &query, int key)
 {
   static int last_match = -1;
   static int direction = 1;
+
+  static int saved_hl_line;
+  static std::vector<EditorHighlight> saved_hl;
+
+  if (!saved_hl.empty())
+  {
+    std::copy(saved_hl.begin(), saved_hl.end(), m_rows[saved_hl_line].hl.begin());
+    saved_hl.clear();
+  }
 
   if (key == '\r' || key == '\x1b')
   {
@@ -283,7 +565,7 @@ void Editor::findCallback(std::string &query, int key)
 
   int current = last_match;
 
-  for (const auto &row : m_rows)
+  for (auto &row : m_rows)
   {
     current += direction;
     if (current == -1)
@@ -292,13 +574,24 @@ void Editor::findCallback(std::string &query, int key)
       current = 0;
 
     const auto &render = row.rendered;
-    auto found = render.find(query);
-    if (found != std::string::npos)
+    auto match_start_offset = render.find(query);
+    if (match_start_offset != std::string::npos)
     {
       last_match = current;
       m_cy = current;
-      m_rx = found;
-      m_cx = 0;
+      m_cx = convertRowRxToCx(m_rows[current], static_cast<int>(match_start_offset));
+      m_rowoff = m_rows.size();
+
+      saved_hl_line = current;
+      saved_hl.reserve(row.rendered.size());
+      std::copy(row.hl.begin(), row.hl.end(), std::back_inserter(saved_hl));
+
+      const auto match_end_offset = row.hl.begin() + match_start_offset + query.size() > row.hl.end()
+                                        ? row.hl.end() - row.hl.begin()
+                                        : match_start_offset + query.size();
+      std::fill(row.hl.begin() + match_start_offset,
+                row.hl.begin() + match_end_offset,
+                EditorHighlight::MATCH);
       return;
     }
   }
@@ -380,7 +673,43 @@ void Editor::drawRows(std::string &s)
       if (len < 0)
         len = 0;
 
-      s += m_rows[filerow].rendered.substr(m_coloff, std::min(len, m_screencols));
+      int current_color = -1;
+      for (int i = 0; i < len; ++i)
+      {
+        const auto &c = m_rows[filerow].rendered[m_coloff + i];
+        const auto &hl = m_rows[filerow].hl[m_coloff + i];
+        if (std::iscntrl(c))
+        {
+          char sym = c <= 26 ? '@' + c : '?';
+          s += "\x1b[7m";
+          s += std::string(1, sym);
+          s += "\x1b[m";
+          if (current_color != -1)
+            s += "\x1b[" + std::to_string(current_color) + "m";
+        }
+        else if (hl == EditorHighlight::NORMAL)
+        {
+          if (current_color != -1)
+          {
+            s += "\x1b[39m";
+            current_color = -1;
+          }
+          s += std::string(1, c);
+        }
+        else
+        {
+          const auto color = convertSyntaxToColor(hl);
+          if (current_color != color)
+          {
+            current_color = color;
+            std::vector<char> buf(16);
+            snprintf(buf.data(), buf.size(), "\x1b[%dm", color);
+            s += buf.data();
+          }
+          s += std::string(1, c);
+        }
+      }
+      s += "\x1b[39m";
     }
 
     s += "\x1b[K\r\n";
@@ -401,7 +730,11 @@ void Editor::drawStatusBar(std::string &s)
      << (m_dirty ? "(modified)" : "");
   int len = std::min(static_cast<int>(ss.str().size()), m_screencols);
 
-  rss << m_cy + 1 << "/" << m_rows.size();
+  rss << (m_syntax ? m_syntax->filetype : "no ft")
+      << " | "
+      << m_cy + 1
+      << "/"
+      << m_rows.size();
   int rlen = rss.str().size();
 
   s += ss.str().substr(0, len);
@@ -480,7 +813,8 @@ void Editor::setStatusMessage(const char *fmt, ...)
 
 /*** input ***/
 
-std::string Editor::fromPrompt(std::string prompt, std::function<void(std::string &, int)> callback)
+std::string Editor::fromPrompt(
+    std::string prompt, std::function<void(std::string &, int)> callback)
 {
   std::string s = "\0";
   while (1)
@@ -532,7 +866,7 @@ void Editor::moveCursor(int key)
       m_cy--;
     break;
   case static_cast<int>(EditorKey::ARROW_DOWN):
-    if (m_cy < static_cast<int>(m_rows.size()))
+    if (m_cy < static_cast<int>(m_rows.size()) - 1)
       m_cy++;
     break;
   case static_cast<int>(EditorKey::ARROW_LEFT):
@@ -551,7 +885,7 @@ void Editor::moveCursor(int key)
     {
       m_cx++;
     }
-    else if (m_cy < static_cast<int>(m_rows.size()))
+    else if (m_cy < static_cast<int>(m_rows.size()) - 1)
     {
       m_cy++;
       m_cx = 0;
