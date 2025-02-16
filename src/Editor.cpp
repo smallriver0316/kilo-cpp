@@ -43,6 +43,8 @@ const EditorSyntax HLDB[] = {
      HL_HIGHLIGHT_NUMBERS | HL_HIGHLIGHT_STRINGS},
 };
 
+/*** constructor ***/
+
 Editor::Editor()
 {
   terminal_manager::enableRawMode();
