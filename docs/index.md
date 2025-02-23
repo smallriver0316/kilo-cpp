@@ -1,6 +1,10 @@
 ---
-# Feel free to add content and custom Front Matter to this file.
-# To modify the layout, see https://jekyllrb.com/docs/themes/#overriding-theme-defaults
+# new `_layouts/default.html` for backwards-compatibility when multiple
+# layouts have been customized.
 
 layout: home
 ---
+
+# Build Your Own Text Editor in C++
+
+This is test content.
