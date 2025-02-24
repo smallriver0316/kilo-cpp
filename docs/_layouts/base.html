@@ -2,6 +2,9 @@
 <html lang="{{ page.lang | default: site.lang | default: 'en' }}">
 
   {%- include head.html -%}
+  <head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css">
+  </head>
 
   <body>
 
@@ -12,6 +15,8 @@
         {{ content }}
       </div>
     </main>
+
+    <!-- {%- include footer.html -%} -->
 
   </body>
 

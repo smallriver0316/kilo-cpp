@@ -28,6 +28,12 @@ theme: minima
 plugins:
   - jekyll-feed
 
+minima:
+  social_links:
+    - title: "GitHub"
+      icon: "github"
+      url: "https://github.com/smallriver0316/kilo-cpp"
+
 # Exclude from processing.
 # The following items will not be processed, by default.
 # Any item listed under the `exclude:` key here will be automatically added to
