@@ -2,11 +2,11 @@
 layout: page
 ---
 
-# Chapter 5: File I/O
+## Chapter 5: File I/O
 
 Kilo++ uses modern C++ file handling with RAII principles.
 
-## File Opening
+### File Opening
 
 ```cpp
 void Editor::open(const char *filename) {
@@ -36,3 +36,7 @@ void Editor::open(const char *filename) {
     m_dirty = 0;
 }
 ```
+
+Go the next chapter, [Chapter 6: Syntax Highlighting](06_syntax_highlighting).
+
+[<- previous chapter](04_text_editing_operation)

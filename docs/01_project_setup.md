@@ -2,11 +2,11 @@
 layout: page
 ---
 
-# Chapter 1: Project Setup
+## Chapter 1: Project Setup
 
 Let's start by setting up our project structure and build system.
 
-## Project Structure
+### Project Structure
 
 Kilo++ uses a standard C++ project layout:
 
@@ -24,7 +24,7 @@ kilo++/
   └── README.md
 ```
 
-## Setting up CMake
+### Setting up CMake
 
 First, create the root `CMakeLists.txt`:
 
@@ -46,3 +46,7 @@ add_executable(${PROJECT_NAME} src/kilo.cpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE libkilo++)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 ```
+
+Go the next chapter, [Chapter 2: The Editor Class](02_editor_class).
+
+[<- top page](/)

@@ -2,11 +2,11 @@
 layout: page
 ---
 
-# Chapter 3: Terminal Handling
+## Chapter 3: Terminal Handling
 
 One major improvement in kilo++ is the separation of terminal-related code into its own namespace.
 
-## Raw Mode Management
+### Raw Mode Management
 
 ```cpp
 namespace terminal_manager {
@@ -29,3 +29,7 @@ namespace terminal_manager {
     }
 }
 ```
+
+Go the next chapter, [Chapter 4: Text Editing Operation](04_text_editing_operation).
+
+[<- previous chapter](02_editor_class)

@@ -2,7 +2,7 @@
 layout: page
 ---
 
-# Chapter 7: Search Functionality
+## Chapter 7: Search Functionality
 
 The search implementation uses C++ standard library features and callbacks.
 
@@ -27,3 +27,7 @@ void Editor::find() {
     }
 }
 ```
+
+Go the final chapter, [Chapter 8: Conclusion](08_conclusion).
+
+[<- previous chapter](06_syntax_highlighting)

@@ -2,7 +2,7 @@
 layout: page
 ---
 
-# Building and Running
+## Building and Running
 
 To build kilo++:
 
@@ -18,7 +18,7 @@ To run:
 ./kilo++ [filename]
 ```
 
-## Key Bindings
+### Key Bindings
 
 - Ctrl-S: Save
 - Ctrl-Q: Quit
@@ -27,7 +27,7 @@ To run:
 - Page Up/Down: Scroll
 - Home/End: Move to start/end of line
 
-## Conclusion
+### Conclusion
 
 This tutorial has shown how to build a text editor using modern C++ features. The complete source code is available on GitHub, and you can extend it further by:
 
@@ -37,8 +37,10 @@ This tutorial has shown how to build a text editor using modern C++ features. Th
 - Supporting multiple buffers
 - Implementing auto-indent
 
-## Resources
+### Resources
 
 - [Original kilo tutorial](https://viewsourcecode.org/snaptoken/kilo/)
 - [Modern C++ resources](https://www.modernescpp.com/)
 - [Terminal programming guide](https://vt100.net/docs/vt100-ug/chapter3.html)
+
+[<- previous chapter](07_search_functionality)

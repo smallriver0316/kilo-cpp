@@ -2,11 +2,11 @@
 layout: page
 ---
 
-# Chapter 4: Text Editing Operations
+## Chapter 4: Text Editing Operations
 
 In kilo++, text editing operations are implemented as member functions of the Editor class.
 
-## Inserting Text
+### Inserting Text
 
 ```cpp
 void Editor::insertChar(int c) {
@@ -26,3 +26,7 @@ void Editor::insertCharIntoRow(EditorRow &erow, int yindex, int c) {
     m_dirty++;
 }
 ```
+
+Go the next chapter, [Chapter 5: File I/O](05_file_io).
+
+[<- previous chapter](03_terminal_handling)

@@ -2,11 +2,11 @@
 layout: page
 ---
 
-# Chapter 2: The Editor Class
+## Chapter 2: The Editor Class
 
 The heart of kilo++ is the `Editor` class. Unlike the original C implementation which used global variables, we'll encapsulate all editor state in this class.
 
-## Basic Class Structure
+### Basic Class Structure
 
 ```cpp
 class Editor {
@@ -28,7 +28,7 @@ private:
 };
 ```
 
-## Editor Row Structure
+### Editor Row Structure
 
 Instead of C structs, we use a proper class to represent each line of text:
 
@@ -45,3 +45,7 @@ struct EditorRow {
     bool hl_open_comment;
 };
 ```
+
+Go the next chapter, [Chapter 3: Terminal Handling](03_terminal_handling).
+
+[<- previous chapter](01_project_setup)
