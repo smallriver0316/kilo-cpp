@@ -9,43 +9,53 @@ layout: home
 
 ## Introduction
 
-Kilo++ is a text editor written in roughly 1000 lines of C++ code with no external dependencies.
-It implements all the basic features you'd expect from a minimal editor:
+Welcome to kilo++, a Modern C++ implementation inspired by [antirez's kilo](http://antirez.com/news/108).
+This tutorial guides you through building a fully-functional text editor that includes syntax highlighting, search functionality, and other essential features while showcasing modern C++ practices.
 
-- Basic text editing functionality
+**Note:**
+
+This tutorial has been created by GenAI.
+So if you find something wrong, please make a github issue to report it.
+
+## Key Features
+
+- Text editing fundamentals
 - Cursor movement
 - File I/O
 - Search functionality
 - Syntax highlighting
-- Status bar and message display
+- Status bar and messaging
 
-The key differences from the original kilo implementation include:
+## Modern C++ Improvements
 
-- Use of C++17 features
-- RAII-based resource management
+- C++17 features
+- RAII resource management
 - Type-safe enums
 - Standard library containers and algorithms
-- Object-oriented design with classes
-- Modern memory management with smart pointers
-- More robust string handling
-- CMake-based build system
+- Object-oriented design
+- Smart pointers
+- Robust string handling
+- CMake build system
 
 ## Prerequisites
 
-To follow this tutorial, you'll need:
+- C++17 compliant compiler (g++ 9.4.0+)
+- CMake 3.16.3+
+- Basic C++ knowledge
+- Unix-like environment
 
-- A C++17 compliant compiler (g++ 9.4.0 or higher recommended)
-- CMake 3.16.3 or higher
-- Basic understanding of C++ and terminal-based applications
-- A Unix-like environment (Linux/macOS)
+## Tutorial Structure
 
-## Table of Contents
+Each chapter adds incremental functionality with executable code at most steps.
 
-1. [Project Setup](01_project_setup)
-2. [The Editor Class](02_editor_class)
-3. [Terminal Handling](03_terminal_handling)
-4. [Text Editing Operation](04_text_editing_operation)
-5. [File I/O](05_file_io)
-6. [Syntax Highlighting](06_syntax_highlighting)
-7. [Search Functionality](07_search_functionality)
-8. [Conclusion](08_conclusion)
+## Contents
+
+1. [Setup](01_setup)
+2. [Basic Structure](02_basic_structure)
+3. [Raw Input and Output](03_raw_input_output)
+4. [Text Viewer](04_text_viewer)
+5. [Text Editor](05_text_editor)
+6. [Search](06_search)
+7. [Syntax Highlighting](07_syntax_highlighting)
+
+Ready to begin? Head to [Chapter 1](01_setup)!
