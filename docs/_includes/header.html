@@ -1,0 +1,17 @@
+<header class="site-header">
+
+  <div class="wrapper">
+    {%- assign default_paths = site.pages | map: "path" -%}
+    {%- assign page_paths = site.header_pages | default: default_paths -%}
+    {%- assign titles_size = site.pages | map: 'title' | join: '' | size -%}
+    <a class="site-title" rel="author" href="{{ '/' | relative_url }}">{{ site.title | escape }}</a>
+
+    <nav class="site-nav">
+      {%- for entry in site.minima.social_links -%}
+      <a rel="me" href="{{ entry.url }}" target="_blank" title="{{ entry.title }}">
+        <span class="grey fa-brands fa-{{ entry.icon }} fa-lg"></span>
+      </a>
+      {%- endfor -%}
+    </nav>
+  </div>
+</header>
